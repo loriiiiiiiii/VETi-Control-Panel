@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { usePupilInfo } from "@/hooks/usePupilInfo";
-import type { PupilInfo } from "@/lib/api";
+import {
+  describeError,
+  getPupilInfo,
+  getPupilMjpegUrl,
+  type PupilInfo,
+} from "@/lib/api";
 import { cn } from "@/lib/cn";
-
-const POLL_INTERVAL_MS = 500;
 
 function formatNumber(value: number, fractionDigits = 2): string {
   if (!Number.isFinite(value)) return "—";
@@ -89,113 +91,168 @@ function Flag({ label, on }: { label: string; on: boolean }) {
 }
 
 export function PupilMonitor() {
-  const [paused, setPaused] = useState(false);
-  const { data, error, loading, lastUpdated } = usePupilInfo({
-    intervalMs: POLL_INTERVAL_MS,
-    paused,
-  });
+  const streamSrc = getPupilMjpegUrl();
+  const [imgKey, setImgKey] = useState(0);
+  const [streamError, setStreamError] = useState<string | null>(null);
+
+  const [data, setData] = useState<PupilInfo | null>(null);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  const refreshMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    setMetricsError(null);
+    try {
+      const next = await getPupilInfo();
+      setData(next);
+      setLastUpdated(new Date().toISOString());
+    } catch (err) {
+      setMetricsError(describeError(err));
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshMetrics();
+  }, [refreshMetrics]);
+
+  const reconnectStream = useCallback(() => {
+    setStreamError(null);
+    setImgKey((k) => k + 1);
+  }, []);
 
   return (
     <Card
       title="Pupil monitor"
-      description={
-        paused
-          ? "Polling paused"
-          : `Polling every ${POLL_INTERVAL_MS} ms`
-      }
+      description="Live MJPEG camera stream (no polling)"
       actions={
-        <Button
-          size="sm"
-          variant={paused ? "primary" : "ghost"}
-          onClick={() => setPaused((p) => !p)}
-        >
-          {paused ? "Resume" : "Pause"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            loading={metricsLoading}
+            onClick={() => void refreshMetrics()}
+          >
+            Refresh metrics
+          </Button>
+          <Button size="sm" variant="ghost" onClick={reconnectStream}>
+            Reconnect stream
+          </Button>
+        </div>
       }
     >
-      {loading && !data && (
-        <div className="py-6 text-sm text-slate-400">
-          Waiting for pupil data…
-        </div>
-      )}
-
-      {!loading && !data && error && (
-        <div className="rounded-md border border-err/40 bg-err/10 px-3 py-2 text-sm text-err">
-          {error}
-        </div>
-      )}
-
-      {data && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="text-sm text-slate-300">
-              Active eye:{" "}
-              <span className="font-semibold capitalize text-slate-100">
-                {data.eye}
-              </span>
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          <div className="relative overflow-hidden rounded-lg border border-border bg-black">
+            <img
+              key={imgKey}
+              src={streamSrc}
+              alt="Pupil camera"
+              className="mx-auto block max-h-[min(55vh,520px)] w-full object-contain"
+              onLoad={() => setStreamError(null)}
+              onError={() =>
+                setStreamError(
+                  "Stream failed to load. Check the backend and try Reconnect.",
+                )
+              }
+            />
+          </div>
+          {streamError && (
+            <div className="mt-2 rounded-md border border-err/40 bg-err/10 px-3 py-2 text-sm text-err">
+              {streamError}
             </div>
-            <StatusBadge data={data} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Flag label="Detected" on={data.detected} />
-            <Flag label="Centered" on={data.in_center} />
-            <Flag label="Stable" on={data.stable} />
-            <Flag label="Tracking" on={data.tracking?.enabled ?? false} />
-            <Flag label="In box" on={!(data.tracking?.outside ?? false)} />
-          </div>
-
-          <div className="rounded-lg border border-border bg-bg/50 px-4 py-2">
-            <MetricRow
-              label="Stable for"
-              value={formatDuration(data.stable_ms)}
-            />
-            <MetricRow
-              label="IPD"
-              value={formatNumber(data.ipd_mm, 1)}
-              hint="mm"
-            />
-            <MetricRow
-              label="Size (W × H)"
-              value={`${formatNumber(data.pupil.size_mm.width)} × ${formatNumber(data.pupil.size_mm.height)}`}
-              hint="mm"
-            />
-            <MetricRow
-              label="Area"
-              value={formatNumber(data.pupil.area_mm2)}
-              hint="mm²"
-            />
-            <MetricRow
-              label="Aspect"
-              value={formatNumber(data.pupil.aspect, 3)}
-            />
-            <MetricRow
-              label="Ellipticity"
-              value={formatNumber(data.pupil.ellipticity, 3)}
-            />
-            <MetricRow
-              label="Position (x, y, z)"
-              value={`${formatNumber(data.pupil.position_mm.x)}, ${formatNumber(data.pupil.position_mm.y)}, ${formatNumber(data.pupil.position_mm.z)}`}
-              hint="mm"
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>
-              {error ? (
-                <span className="text-err">Last error: {error}</span>
-              ) : (
-                "Live"
-              )}
-            </span>
-            <span>
-              {lastUpdated
-                ? `Updated ${new Date(lastUpdated).toLocaleTimeString()}`
-                : ""}
-            </span>
-          </div>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Source:{" "}
+            <code className="rounded bg-bg-subtle px-1 py-0.5 font-mono text-[11px]">
+              {streamSrc}
+            </code>
+          </p>
         </div>
-      )}
+
+        <div className="w-full shrink-0 lg:w-[min(100%,380px)]">
+          {metricsLoading && !data && (
+            <div className="py-2 text-sm text-slate-400">Loading metrics…</div>
+          )}
+
+          {!metricsLoading && !data && !metricsError && (
+            <div className="py-2 text-sm text-slate-400">
+              No metrics yet. Use &quot;Refresh metrics&quot; to retry.
+            </div>
+          )}
+
+          {metricsError && (
+            <div className="mb-3 rounded-md border border-err/40 bg-err/10 px-3 py-2 text-sm text-err">
+              {metricsError}
+            </div>
+          )}
+
+          {data && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-sm text-slate-300">
+                  Active eye:{" "}
+                  <span className="font-semibold capitalize text-slate-100">
+                    {data.eye}
+                  </span>
+                </div>
+                <StatusBadge data={data} />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Flag label="Detected" on={data.detected} />
+                <Flag label="Centered" on={data.in_center} />
+                <Flag label="Stable" on={data.stable} />
+                <Flag label="Tracking" on={data.tracking?.enabled ?? false} />
+                <Flag label="In box" on={!(data.tracking?.outside ?? false)} />
+              </div>
+
+              <div className="rounded-lg border border-border bg-bg/50 px-4 py-2">
+                <MetricRow
+                  label="Stable for"
+                  value={formatDuration(data.stable_ms)}
+                />
+                <MetricRow
+                  label="IPD"
+                  value={formatNumber(data.ipd_mm, 1)}
+                  hint="mm"
+                />
+                <MetricRow
+                  label="Size (W × H)"
+                  value={`${formatNumber(data.pupil.size_mm.width)} × ${formatNumber(data.pupil.size_mm.height)}`}
+                  hint="mm"
+                />
+                <MetricRow
+                  label="Area"
+                  value={formatNumber(data.pupil.area_mm2)}
+                  hint="mm²"
+                />
+                <MetricRow
+                  label="Aspect"
+                  value={formatNumber(data.pupil.aspect, 3)}
+                />
+                <MetricRow
+                  label="Ellipticity"
+                  value={formatNumber(data.pupil.ellipticity, 3)}
+                />
+                <MetricRow
+                  label="Position (x, y, z)"
+                  value={`${formatNumber(data.pupil.position_mm.x)}, ${formatNumber(data.pupil.position_mm.y)}, ${formatNumber(data.pupil.position_mm.z)}`}
+                  hint="mm"
+                />
+              </div>
+
+              <div className="text-xs text-slate-500">
+                {lastUpdated
+                  ? `Metrics at ${new Date(lastUpdated).toLocaleTimeString()}`
+                  : ""}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

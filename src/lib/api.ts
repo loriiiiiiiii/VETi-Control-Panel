@@ -1,6 +1,22 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
 
-export const API_BASE_URL = "http://localhost:8888";
+const envBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+
+/**
+ * Base URL for REST calls. In Vite dev this is empty so requests stay same-origin
+ * and hit `server.proxy` (avoids missing CORS headers on the backend). In production
+ * builds it defaults to localhost unless `VITE_API_BASE_URL` is set (e.g. LAN IP for
+ * Capacitor tablets).
+ */
+export const API_BASE_URL = envBase
+  ? envBase.replace(/\/+$/, "")
+  : import.meta.env.DEV
+    ? ""
+    : "http://localhost:8888";
+
+/** Shown in the shell when API_BASE_URL is empty (dev proxy). */
+export const API_BACKEND_DISPLAY =
+  API_BASE_URL || "localhost:8888 (dev proxy)";
 
 export const http: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -123,4 +139,9 @@ export async function setDisplaySource(
 export async function getPupilInfo(): Promise<PupilInfo> {
   const { data } = await http.get<PupilInfo>("/api/pupil/info");
   return data;
+}
+
+/** MJPEG pupil camera stream served by the device (multipart/x-mixed-replace). */
+export function getPupilMjpegUrl(): string {
+  return API_BASE_URL ? `${API_BASE_URL}/mjpg` : "/mjpg";
 }

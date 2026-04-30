@@ -12,6 +12,17 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    proxy: {
+      // CivetWeb often omits CORS on JSON routes; same-origin avoids browser blocks in dev.
+      "/api": { target: "http://localhost:8888", changeOrigin: true },
+      "/mjpg": { target: "http://localhost:8888", changeOrigin: true },
+    },
+  },
+  preview: {
+    proxy: {
+      "/api": { target: "http://localhost:8888", changeOrigin: true },
+      "/mjpg": { target: "http://localhost:8888", changeOrigin: true },
+    },
   },
   build: {
     outDir: "dist",

@@ -3,7 +3,7 @@ import { PupilMonitor } from "@/components/PupilMonitor";
 import { ScriptRunner } from "@/components/ScriptRunner";
 import { SystemControls } from "@/components/SystemControls";
 import { ToastProvider } from "@/components/Toast";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BACKEND_DISPLAY } from "@/lib/api";
 
 export function App() {
   return (
@@ -22,7 +22,7 @@ export function App() {
             <div className="hidden text-right text-xs text-slate-400 sm:block">
               <div className="font-medium text-slate-300">Backend</div>
               <code className="font-mono text-[11px] text-slate-400">
-                {API_BASE_URL}
+                {API_BACKEND_DISPLAY}
               </code>
             </div>
           </div>
