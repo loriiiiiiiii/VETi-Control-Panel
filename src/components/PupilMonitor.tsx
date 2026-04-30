@@ -1,13 +1,25 @@
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   describeError,
   getPupilInfo,
   getPupilMjpegUrl,
   type PupilInfo,
 } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
+
+type PupilMonitorProps = {
+  embedded?: boolean;
+};
 
 function formatNumber(value: number, fractionDigits = 2): string {
   if (!Number.isFinite(value)) return "—";
@@ -53,14 +65,14 @@ function MetricRow({
   hint?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-2 last:border-b-0">
-      <span className="text-xs uppercase tracking-wide text-slate-400">
+    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-2.5 text-base last:border-b-0">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="text-sm font-medium tabular-nums text-slate-100">
+      <span className="font-medium tabular-nums text-foreground">
         {value}
         {hint && (
-          <span className="ml-1 text-xs font-normal text-slate-400">
+          <span className="ml-1 text-xs font-normal text-muted-foreground">
             {hint}
           </span>
         )}
@@ -73,16 +85,16 @@ function Flag({ label, on }: { label: string; on: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium",
+        "inline-flex min-h-9 items-center rounded-lg border px-3 py-1.5 text-sm font-medium",
         on
           ? "border-ok/40 bg-ok/10 text-ok"
-          : "border-border bg-bg-subtle text-slate-400",
+          : "border-border bg-muted text-muted-foreground",
       )}
     >
       <span
         className={cn(
-          "mr-1.5 h-1.5 w-1.5 rounded-full",
-          on ? "bg-ok" : "bg-slate-500",
+          "mr-2 h-2 w-2 shrink-0 rounded-full",
+          on ? "bg-ok" : "bg-muted-foreground",
         )}
       />
       {label}
@@ -90,7 +102,7 @@ function Flag({ label, on }: { label: string; on: boolean }) {
   );
 }
 
-export function PupilMonitor() {
+export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
   const streamSrc = getPupilMjpegUrl();
   const [imgKey, setImgKey] = useState(0);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -123,136 +135,178 @@ export function PupilMonitor() {
     setImgKey((k) => k + 1);
   }, []);
 
-  return (
-    <Card
-      title="Pupil monitor"
-      description="Live MJPEG camera stream (no polling)"
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            loading={metricsLoading}
-            onClick={() => void refreshMetrics()}
-          >
-            Refresh metrics
-          </Button>
-          <Button size="sm" variant="ghost" onClick={reconnectStream}>
-            Reconnect stream
-          </Button>
+  const actionRow = (
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button
+        size="lg"
+        variant="secondary"
+        disabled={metricsLoading}
+        onClick={() => void refreshMetrics()}
+        className="min-h-12 flex-1 sm:flex-none"
+      >
+        {metricsLoading && (
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+        )}
+        Refresh metrics
+      </Button>
+      <Button
+        size="lg"
+        variant="secondary"
+        onClick={reconnectStream}
+        className="min-h-12 flex-1 sm:flex-none"
+      >
+        Reconnect stream
+      </Button>
+    </div>
+  );
+
+  const streamBlock = (
+    <div className="min-w-0 flex-1">
+      <div className="relative overflow-hidden rounded-xl border border-border bg-black">
+        <img
+          key={imgKey}
+          src={streamSrc}
+          alt="Pupil camera"
+          className="mx-auto block max-h-[min(50dvh,480px)] w-full object-contain"
+          onLoad={() => setStreamError(null)}
+          onError={() =>
+            setStreamError(
+              "Stream failed to load. Check the backend and try Reconnect.",
+            )
+          }
+        />
+      </div>
+      {streamError && (
+        <div className="mt-3 rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
+          {streamError}
         </div>
-      }
-    >
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          <div className="relative overflow-hidden rounded-lg border border-border bg-black">
-            <img
-              key={imgKey}
-              src={streamSrc}
-              alt="Pupil camera"
-              className="mx-auto block max-h-[min(55vh,520px)] w-full object-contain"
-              onLoad={() => setStreamError(null)}
-              onError={() =>
-                setStreamError(
-                  "Stream failed to load. Check the backend and try Reconnect.",
-                )
-              }
+      )}
+      {!embedded && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Source:{" "}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+            {streamSrc}
+          </code>
+        </p>
+      )}
+    </div>
+  );
+
+  const metricsBlock = (
+    <div className="w-full shrink-0 lg:w-[min(100%,380px)]">
+      {metricsLoading && !data && (
+        <div className="py-3 text-base text-muted-foreground">
+          Loading metrics…
+        </div>
+      )}
+
+      {!metricsLoading && !data && !metricsError && (
+        <div className="py-3 text-base text-muted-foreground">
+          No metrics yet. Tap Refresh metrics.
+        </div>
+      )}
+
+      {metricsError && (
+        <div className="mb-3 rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
+          {metricsError}
+        </div>
+      )}
+
+      {data && (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-base text-muted-foreground">
+              Active eye:{" "}
+              <span className="font-semibold capitalize text-foreground">
+                {data.eye}
+              </span>
+            </div>
+            <StatusBadge data={data} />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Flag label="Detected" on={data.detected} />
+            <Flag label="Centered" on={data.in_center} />
+            <Flag label="Stable" on={data.stable} />
+            <Flag label="Tracking" on={data.tracking?.enabled ?? false} />
+            <Flag label="In box" on={!(data.tracking?.outside ?? false)} />
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/40 px-4 py-2">
+            <MetricRow
+              label="Stable for"
+              value={formatDuration(data.stable_ms)}
+            />
+            <MetricRow
+              label="IPD"
+              value={formatNumber(data.ipd_mm, 1)}
+              hint="mm"
+            />
+            <MetricRow
+              label="Size (W × H)"
+              value={`${formatNumber(data.pupil.size_mm.width)} × ${formatNumber(data.pupil.size_mm.height)}`}
+              hint="mm"
+            />
+            <MetricRow
+              label="Area"
+              value={formatNumber(data.pupil.area_mm2)}
+              hint="mm²"
+            />
+            <MetricRow
+              label="Aspect"
+              value={formatNumber(data.pupil.aspect, 3)}
+            />
+            <MetricRow
+              label="Ellipticity"
+              value={formatNumber(data.pupil.ellipticity, 3)}
+            />
+            <MetricRow
+              label="Position (x, y, z)"
+              value={`${formatNumber(data.pupil.position_mm.x)}, ${formatNumber(data.pupil.position_mm.y)}, ${formatNumber(data.pupil.position_mm.z)}`}
+              hint="mm"
             />
           </div>
-          {streamError && (
-            <div className="mt-2 rounded-md border border-err/40 bg-err/10 px-3 py-2 text-sm text-err">
-              {streamError}
-            </div>
-          )}
-          <p className="mt-2 text-xs text-slate-500">
-            Source:{" "}
-            <code className="rounded bg-bg-subtle px-1 py-0.5 font-mono text-[11px]">
-              {streamSrc}
-            </code>
-          </p>
+
+          <div className="text-sm text-muted-foreground">
+            {lastUpdated
+              ? `Metrics at ${new Date(lastUpdated).toLocaleTimeString()}`
+              : ""}
+          </div>
         </div>
+      )}
+    </div>
+  );
 
-        <div className="w-full shrink-0 lg:w-[min(100%,380px)]">
-          {metricsLoading && !data && (
-            <div className="py-2 text-sm text-slate-400">Loading metrics…</div>
-          )}
+  const streamAndMetrics = (
+    <div className="flex flex-col gap-4 lg:flex-row">
+      {streamBlock}
+      {metricsBlock}
+    </div>
+  );
 
-          {!metricsLoading && !data && !metricsError && (
-            <div className="py-2 text-sm text-slate-400">
-              No metrics yet. Use &quot;Refresh metrics&quot; to retry.
-            </div>
-          )}
-
-          {metricsError && (
-            <div className="mb-3 rounded-md border border-err/40 bg-err/10 px-3 py-2 text-sm text-err">
-              {metricsError}
-            </div>
-          )}
-
-          {data && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="text-sm text-slate-300">
-                  Active eye:{" "}
-                  <span className="font-semibold capitalize text-slate-100">
-                    {data.eye}
-                  </span>
-                </div>
-                <StatusBadge data={data} />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Flag label="Detected" on={data.detected} />
-                <Flag label="Centered" on={data.in_center} />
-                <Flag label="Stable" on={data.stable} />
-                <Flag label="Tracking" on={data.tracking?.enabled ?? false} />
-                <Flag label="In box" on={!(data.tracking?.outside ?? false)} />
-              </div>
-
-              <div className="rounded-lg border border-border bg-bg/50 px-4 py-2">
-                <MetricRow
-                  label="Stable for"
-                  value={formatDuration(data.stable_ms)}
-                />
-                <MetricRow
-                  label="IPD"
-                  value={formatNumber(data.ipd_mm, 1)}
-                  hint="mm"
-                />
-                <MetricRow
-                  label="Size (W × H)"
-                  value={`${formatNumber(data.pupil.size_mm.width)} × ${formatNumber(data.pupil.size_mm.height)}`}
-                  hint="mm"
-                />
-                <MetricRow
-                  label="Area"
-                  value={formatNumber(data.pupil.area_mm2)}
-                  hint="mm²"
-                />
-                <MetricRow
-                  label="Aspect"
-                  value={formatNumber(data.pupil.aspect, 3)}
-                />
-                <MetricRow
-                  label="Ellipticity"
-                  value={formatNumber(data.pupil.ellipticity, 3)}
-                />
-                <MetricRow
-                  label="Position (x, y, z)"
-                  value={`${formatNumber(data.pupil.position_mm.x)}, ${formatNumber(data.pupil.position_mm.y)}, ${formatNumber(data.pupil.position_mm.z)}`}
-                  hint="mm"
-                />
-              </div>
-
-              <div className="text-xs text-slate-500">
-                {lastUpdated
-                  ? `Metrics at ${new Date(lastUpdated).toLocaleTimeString()}`
-                  : ""}
-              </div>
-            </div>
-          )}
-        </div>
+  if (embedded) {
+    return (
+      <div className="flex flex-col gap-4">
+        {actionRow}
+        {streamAndMetrics}
       </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="border-b">
+        <div className="min-w-0">
+          <CardTitle>Pupil monitor</CardTitle>
+          <CardDescription>
+            Live MJPEG camera stream (no polling)
+          </CardDescription>
+        </div>
+        <CardAction className="w-full pt-2 sm:w-auto sm:pt-0">
+          {actionRow}
+        </CardAction>
+      </CardHeader>
+      <CardContent className="pt-6">{streamAndMetrics}</CardContent>
     </Card>
   );
 }

@@ -1,7 +1,14 @@
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
-import { useToast } from "@/components/Toast";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   describeError,
   DISPLAY_SCENES,
@@ -9,8 +16,11 @@ import {
   type DisplayScene,
 } from "@/lib/api";
 
-export function DisplaySource() {
-  const toast = useToast();
+type DisplaySourceProps = {
+  embedded?: boolean;
+};
+
+export function DisplaySource({ embedded = false }: DisplaySourceProps) {
   const [activeScene, setActiveScene] = useState<DisplayScene | null>(null);
   const [pending, setPending] = useState<DisplayScene | null>(null);
 
@@ -31,27 +41,37 @@ export function DisplaySource() {
     }
   };
 
+  const grid = (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {DISPLAY_SCENES.map((scene) => (
+        <Button
+          key={scene}
+          variant={activeScene === scene ? "default" : "outline"}
+          size="lg"
+          disabled={pending !== null && pending !== scene}
+          onClick={() => handleClick(scene)}
+          className="min-h-14 w-full capitalize"
+        >
+          {pending === scene && (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          )}
+          {scene.replace(/_/g, " ")}
+        </Button>
+      ))}
+    </div>
+  );
+
+  if (embedded) {
+    return grid;
+  }
+
   return (
-    <Card
-      title="Display source"
-      description="Switch the HMD display scene"
-    >
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-        {DISPLAY_SCENES.map((scene) => (
-          <Button
-            key={scene}
-            variant={activeScene === scene ? "primary" : "secondary"}
-            size="md"
-            active={activeScene === scene}
-            loading={pending === scene}
-            disabled={pending !== null && pending !== scene}
-            onClick={() => handleClick(scene)}
-            className="w-full"
-          >
-            {scene}
-          </Button>
-        ))}
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Display source</CardTitle>
+        <CardDescription>Switch the HMD display scene</CardDescription>
+      </CardHeader>
+      <CardContent>{grid}</CardContent>
     </Card>
   );
 }

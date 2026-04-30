@@ -1,9 +1,10 @@
-import { defineConfig } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -13,7 +14,6 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      // CivetWeb often omits CORS on JSON routes; same-origin avoids browser blocks in dev.
       "/api": { target: "http://localhost:8888", changeOrigin: true },
       "/mjpg": { target: "http://localhost:8888", changeOrigin: true },
     },
