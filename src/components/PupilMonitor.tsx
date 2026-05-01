@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useBackend } from "@/context/BackendContext";
 import {
   describeError,
   getPupilInfo,
@@ -103,7 +104,8 @@ function Flag({ label, on }: { label: string; on: boolean }) {
 }
 
 export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
-  const streamSrc = getPupilMjpegUrl();
+  const { activeUrl } = useBackend();
+  const streamSrc = getPupilMjpegUrl(activeUrl);
   const [imgKey, setImgKey] = useState(0);
   const [streamError, setStreamError] = useState<string | null>(null);
 
@@ -126,9 +128,15 @@ export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
     }
   }, []);
 
+  // Re-fetch metrics and reconnect stream when the active backend changes
   useEffect(() => {
+    if (!activeUrl) return;
+    setData(null);
+    setMetricsError(null);
+    setStreamError(null);
+    setImgKey((k) => k + 1);
     void refreshMetrics();
-  }, [refreshMetrics]);
+  }, [activeUrl, refreshMetrics]);
 
   const reconnectStream = useCallback(() => {
     setStreamError(null);

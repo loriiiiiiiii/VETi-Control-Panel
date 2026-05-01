@@ -8,16 +8,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useBackend } from "@/context/BackendContext";
 import { describeError, getScripts, runScript, type ScriptInfo } from "@/lib/api";
 import { resolveQuickScripts } from "@/lib/quickScripts";
 import { cn } from "@/lib/utils";
 
 export function PrimaryPadActions() {
+  const { activeUrl } = useBackend();
   const [scripts, setScripts] = useState<ScriptInfo[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [runningFile, setRunningFile] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!activeUrl) return;
+    setScripts([]);
+    setListLoading(true);
     let cancelled = false;
     (async () => {
       try {
@@ -32,7 +37,7 @@ export function PrimaryPadActions() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeUrl]);
 
   const { scan, visionTest } = useMemo(
     () => resolveQuickScripts(scripts),

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { BackendSelector } from "@/components/BackendSelector";
 import { DisplaySource } from "@/components/DisplaySource";
 import { PowerButtons } from "@/components/PowerButtons";
 import { PrimaryPadActions } from "@/components/PrimaryPadActions";
@@ -11,14 +12,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
-import { API_BACKEND_DISPLAY } from "@/lib/api";
+import { BackendProvider } from "@/context/BackendContext";
 import { cn } from "@/lib/utils";
 
 type SheetKind = "scripts" | "display" | "pupil" | null;
 
 export function App() {
   return (
-    <>
+    <BackendProvider>
       <AppShell />
       <Toaster
         richColors
@@ -26,7 +27,7 @@ export function App() {
         position="top-center"
         className="pt-[max(0.5rem,env(safe-area-inset-top))]"
       />
-    </>
+    </BackendProvider>
   );
 }
 
@@ -63,14 +64,12 @@ function AppShell() {
             <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               Interaction Board
             </h1>
-            <p className="truncate text-xs text-muted-foreground">
-              <span className="text-muted-foreground">Backend</span>{" "}
-              <code className="font-mono text-[11px] text-muted-foreground">
-                {API_BACKEND_DISPLAY}
-              </code>
-            </p>
+            <p className="text-xs text-muted-foreground">VETi control panel</p>
           </div>
-          <PowerButtons />
+          <div className="flex shrink-0 items-center gap-3">
+            <BackendSelector />
+            <PowerButtons />
+          </div>
         </div>
       </header>
 

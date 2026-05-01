@@ -1,25 +1,12 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
 
-const envBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
-
 /**
- * Base URL for REST calls. In Vite dev this is empty so requests stay same-origin
- * and hit `server.proxy` (avoids missing CORS headers on the backend). In production
- * builds it defaults to localhost unless `VITE_API_BASE_URL` is set (e.g. LAN IP for
- * Capacitor tablets).
+ * Shared axios instance. `baseURL` starts empty and is set at runtime by
+ * BackendContext as soon as a backend is discovered or restored from storage.
+ * All API functions use this instance so switching backends is instantaneous.
  */
-export const API_BASE_URL = envBase
-  ? envBase.replace(/\/+$/, "")
-  : import.meta.env.DEV
-    ? ""
-    : "http://localhost:8888";
-
-/** Shown in the shell when API_BASE_URL is empty (dev proxy). */
-export const API_BACKEND_DISPLAY =
-  API_BASE_URL || "localhost:8888 (dev proxy)";
-
 export const http: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: "",
   timeout: 15_000,
   headers: {
     "Content-Type": "application/json",
@@ -141,7 +128,10 @@ export async function getPupilInfo(): Promise<PupilInfo> {
   return data;
 }
 
-/** MJPEG pupil camera stream served by the device (multipart/x-mixed-replace). */
-export function getPupilMjpegUrl(): string {
-  return API_BASE_URL ? `${API_BASE_URL}/mjpg` : "/mjpg";
+/**
+ * MJPEG pupil camera stream URL. Pass the active backend URL explicitly so
+ * the src updates reactively when the user switches backends.
+ */
+export function getPupilMjpegUrl(baseUrl?: string): string {
+  return `${baseUrl ?? http.defaults.baseURL ?? ""}/mjpg`;
 }

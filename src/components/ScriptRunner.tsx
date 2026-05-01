@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useBackend } from "@/context/BackendContext";
 import {
   describeError,
   getScripts,
@@ -24,6 +25,7 @@ type ScriptRunnerProps = {
 };
 
 export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
+  const { activeUrl } = useBackend();
   const [scripts, setScripts] = useState<ScriptInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -31,6 +33,10 @@ export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
   const [activeCategory, setActiveCategory] = useState<string>(ALL_TAB);
 
   useEffect(() => {
+    if (!activeUrl) return;
+    setScripts([]);
+    setLoading(true);
+    setLoadError(null);
     let cancelled = false;
     (async () => {
       try {
@@ -48,7 +54,7 @@ export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeUrl]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
