@@ -76,7 +76,9 @@ function AppShell() {
       <main
         className={cn(
           "mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-4 py-8 sm:px-6 sm:py-10",
-          "pb-[calc(5.75rem+env(safe-area-inset-bottom))]",
+          // pb must equal pt + nav-height so justify-center lands in the visible area.
+          // nav ≈ 4.35rem (pt-2 + min-h-14 buttons + pb-0.35rem); base pt=2rem, sm pt=2.5rem.
+          "pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(7rem+env(safe-area-inset-bottom))]",
         )}
       >
         <PrimaryPadActions />

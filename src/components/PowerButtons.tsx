@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,33 +49,37 @@ export function PowerButtons({ className }: PowerButtonsProps) {
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-wrap items-stretch justify-end gap-2 sm:gap-2.5",
+        "flex shrink-0 items-center gap-2 sm:gap-2.5",
         className,
       )}
     >
       <Button
-        variant="secondary"
-        size="lg"
-        className="min-h-12 min-w-[6.5rem] flex-1 border-emerald-700/50 bg-emerald-600 text-white hover:bg-emerald-600/90 sm:flex-none"
+        variant="ghost"
+        size="icon"
+        aria-label="Wake up"
+        className="size-11 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
         disabled={pending !== null && pending !== "wakeup"}
         onClick={handleWakeup}
       >
-        {pending === "wakeup" && (
-          <Loader2 className="size-4 animate-spin" aria-hidden />
+        {pending === "wakeup" ? (
+          <Loader2 className="size-5 animate-spin" aria-hidden />
+        ) : (
+          <Play className="size-5" aria-hidden />
         )}
-        Wake up
       </Button>
       <Button
-        variant="destructive"
-        size="lg"
-        className="min-h-12 min-w-[6.5rem] flex-1 border-transparent bg-red-600 text-white hover:bg-red-600/90 sm:flex-none"
+        variant="ghost"
+        size="icon"
+        aria-label="Sleep"
+        className="size-11 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
         disabled={pending !== null && pending !== "sleep"}
         onClick={handleSleep}
       >
-        {pending === "sleep" && (
-          <Loader2 className="size-4 animate-spin" aria-hidden />
+        {pending === "sleep" ? (
+          <Loader2 className="size-5 animate-spin" aria-hidden />
+        ) : (
+          <Pause className="size-5" aria-hidden />
         )}
-        Sleep
       </Button>
     </div>
   );
