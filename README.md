@@ -27,7 +27,7 @@ The active backend is persisted to `localStorage` and restored on next launch.
 
 - Node.js 18+ and npm
 - The VETi CivetWeb backend running and announcing `_veti._tcp` on the LAN (mDNS / Bonjour)
-- For Android packaging: Android Studio (Hedgehog or newer), a JDK 17+, and the Android SDK
+- For Android packaging: JDK 17, Android SDK command-line tools, and `adb` (no Android Studio required)
 
 ## Windows / PowerShell note
 
@@ -63,23 +63,65 @@ The static site is emitted to `dist/`. Serve it with any static-file server (ngi
 
 The Android project lives in `android/` and is committed to git. It was created with `npx cap add android` and includes the `capacitor-zeroconf` plugin for native mDNS discovery.
 
-### One-time setup
+### One-time setup (CLI only, no Android Studio)
 
-1. Install [Android Studio](https://developer.android.com/studio) and a JDK 17+.
-2. Open Android Studio → "More actions" → "SDK Manager", install Android 14 (API 34) and the Android SDK Build-Tools.
-3. Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) to your SDK path, e.g. `C:\Users\<you>\AppData\Local\Android\Sdk`.
+**1. Install JDK 17**
+
+Download from [Adoptium](https://adoptium.net/) (Temurin 17) or any JDK 17 distribution.
+Set `JAVA_HOME` to the JDK 17 root and add `%JAVA_HOME%\bin` to `PATH`.
+Verify: `java -version` should report `17.x`.
+
+> Gradle 8 supports up to Java 21; JDK 25+ will cause a "Unsupported class file major version" build error.
+
+**2. Install Android SDK command-line tools**
+
+Download the [Android command-line tools](https://developer.android.com/studio#command-line-tools-only) (zip, no Android Studio).
+Extract so the directory structure is:
+
+```
+C:\Android\
+  cmdline-tools\
+    latest\
+      bin\
+        sdkmanager.bat
+        ...
+```
+
+Set `ANDROID_HOME=C:\Android` and add `%ANDROID_HOME%\cmdline-tools\latest\bin` and `%ANDROID_HOME%\platform-tools` to `PATH`.
+
+**3. Install required SDK packages**
+
+```powershell
+sdkmanager.bat "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+```
+
+Accept the licences when prompted (`y`).
 
 ### Build flow
 
 For every rebuild:
 
-```bash
-npm run build            # builds the React app into dist/
-npm run cap:sync         # copies dist/ + plugin updates into android/
-npm run cap:open         # opens Android Studio
+```powershell
+npm.cmd run build        # compile the React app into dist/
+npm.cmd run cap:sync     # copy dist/ + Capacitor plugins into android/
 ```
 
-In Android Studio: **Build → Build Bundle(s)/APK(s) → Build APK(s)**. The output APK is at `android/app/build/outputs/apk/debug/app-debug.apk` (debug) or `release/app-release.apk` (release). Sideload it onto the tablet.
+Then build the APK with Gradle (debug APK is auto-signed and can be sideloaded directly):
+
+```powershell
+cd android
+.\gradlew assembleDebug
+```
+
+The APK is output to `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Install onto a connected tablet (USB debugging enabled):
+
+```powershell
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+Check connected devices: `adb devices`. Launch remotely: `adb shell am start -n com.veti.interactionboard/.MainActivity`.
 
 ### mDNS / network permissions
 

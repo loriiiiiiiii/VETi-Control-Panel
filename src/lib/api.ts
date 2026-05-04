@@ -1,17 +1,4 @@
-import axios, { AxiosError, type AxiosInstance } from "axios";
-
-/**
- * Shared axios instance. `baseURL` starts empty and is set at runtime by
- * BackendContext as soon as a backend is discovered or restored from storage.
- * All API functions use this instance so switching backends is instantaneous.
- */
-export const http: AxiosInstance = axios.create({
-  baseURL: "",
-  timeout: 15_000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+import axios, { AxiosError } from "axios";
 
 export type ScriptInfo = {
   filename: string;
@@ -67,6 +54,11 @@ export type ApiResult<T = Record<string, unknown>> = {
   error?: string;
 } & T;
 
+export type RunScriptResponse = ApiResult<{ script?: string }>;
+export type WakeupResponse = ApiResult;
+export type SleepResponse = ApiResult;
+export type DisplaySourceResponse = ApiResult<{ scene?: DisplayScene }>;
+
 /**
  * Normalizes axios errors into a readable message. The backend returns
  * { success: false, error: "..." } for most failures, which we surface here.
@@ -85,53 +77,44 @@ export function describeError(err: unknown): string {
   return String(err);
 }
 
-export async function getScripts(): Promise<ScriptInfo[]> {
-  const { data } = await http.get<ScriptInfo[]>("/api/scripts");
-  return data;
-}
-
-export type RunScriptResponse = ApiResult<{ script?: string }>;
-
-export async function runScript(script: string): Promise<RunScriptResponse> {
-  const { data } = await http.post<RunScriptResponse>("/api/run", { script });
-  return data;
-}
-
-export type WakeupResponse = ApiResult;
-
-export async function wakeup(blocking = true): Promise<WakeupResponse> {
-  const { data } = await http.post<WakeupResponse>("/api/wakeup", { blocking });
-  return data;
-}
-
-export type SleepResponse = ApiResult;
-
-export async function sleep(): Promise<SleepResponse> {
-  const { data } = await http.post<SleepResponse>("/api/sleep");
-  return data;
-}
-
-export type DisplaySourceResponse = ApiResult<{ scene?: DisplayScene }>;
-
-export async function setDisplaySource(
-  scene: DisplayScene,
-): Promise<DisplaySourceResponse> {
-  const { data } = await http.post<DisplaySourceResponse>(
-    "/api/display/source",
-    { scene },
-  );
-  return data;
-}
-
-export async function getPupilInfo(): Promise<PupilInfo> {
-  const { data } = await http.get<PupilInfo>("/api/pupil/info");
-  return data;
-}
-
 /**
- * MJPEG pupil camera stream URL. Pass the active backend URL explicitly so
- * the src updates reactively when the user switches backends.
+ * Creates a backend-bound API client. Call once per active backend selection;
+ * each returned object owns its own axios instance so switching backends is
+ * instantaneous and callers never depend on implicit global state.
  */
-export function getPupilMjpegUrl(baseUrl?: string): string {
-  return `${baseUrl ?? http.defaults.baseURL ?? ""}/mjpg`;
+export function createApiClient(baseURL: string) {
+  const http = axios.create({
+    baseURL,
+    timeout: 15_000,
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return {
+    getScripts: (): Promise<ScriptInfo[]> =>
+      http.get<ScriptInfo[]>("/api/scripts").then((r) => r.data),
+
+    runScript: (script: string): Promise<RunScriptResponse> =>
+      http.post<RunScriptResponse>("/api/run", { script }).then((r) => r.data),
+
+    wakeup: (blocking = true): Promise<WakeupResponse> =>
+      http
+        .post<WakeupResponse>("/api/wakeup", { blocking })
+        .then((r) => r.data),
+
+    sleep: (): Promise<SleepResponse> =>
+      http.post<SleepResponse>("/api/sleep").then((r) => r.data),
+
+    setDisplaySource: (scene: DisplayScene): Promise<DisplaySourceResponse> =>
+      http
+        .post<DisplaySourceResponse>("/api/display/source", { scene })
+        .then((r) => r.data),
+
+    getPupilInfo: (): Promise<PupilInfo> =>
+      http.get<PupilInfo>("/api/pupil/info").then((r) => r.data),
+
+    /** MJPEG pupil camera stream URL for this backend. */
+    mjpegUrl: `${baseURL}/mjpg`,
+  };
 }
+
+export type ApiClient = ReturnType<typeof createApiClient>;

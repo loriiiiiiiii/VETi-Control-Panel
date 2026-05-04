@@ -1,60 +1,14 @@
 import { Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { useBackend } from "@/context/BackendContext";
-import {
-  describeError,
-  getScripts,
-  runScript,
-  type ScriptInfo,
-} from "@/lib/api";
+import { useScripts } from "@/hooks/useScripts";
 import { cn } from "@/lib/utils";
 
 const ALL_TAB = "All";
 
-type ScriptRunnerProps = {
-  embedded?: boolean;
-};
-
-export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
-  const { activeUrl } = useBackend();
-  const [scripts, setScripts] = useState<ScriptInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [runningName, setRunningName] = useState<string | null>(null);
+export function ScriptRunner() {
+  const { scripts, loading, error: loadError, runningFile, run } = useScripts();
   const [activeCategory, setActiveCategory] = useState<string>(ALL_TAB);
-
-  useEffect(() => {
-    if (!activeUrl) return;
-    setScripts([]);
-    setLoading(true);
-    setLoadError(null);
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await getScripts();
-        if (cancelled) return;
-        setScripts(data);
-        setLoadError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setLoadError(describeError(err));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeUrl]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -69,30 +23,8 @@ export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
     return scripts.filter((s) => s.category === activeCategory);
   }, [scripts, activeCategory]);
 
-  const handleRun = async (script: ScriptInfo) => {
-    setRunningName(script.filename);
-    try {
-      const res = await runScript(script.name || script.filename);
-      if (res.success) {
-        toast.success(`Started: ${res.script ?? script.name}`);
-      } else if (res.error === "busy") {
-        toast.error(`Busy: ${res.script ?? script.name}`);
-      } else {
-        toast.error(res.error ?? `Failed to run ${script.name}`);
-      }
-    } catch (err) {
-      toast.error(`Run failed: ${describeError(err)}`);
-    } finally {
-      setRunningName(null);
-    }
-  };
-
-  const tabClass = embedded
-    ? "min-h-12 rounded-xl px-4 text-sm font-medium"
-    : "rounded-full px-3 py-1 text-xs font-medium";
-
-  const body = (
-    <>
+  return (
+    <div className="flex flex-col gap-2">
       {loading && (
         <div className="py-8 text-center text-base text-muted-foreground">
           Loading scripts…
@@ -128,8 +60,7 @@ export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
                   aria-selected={isActive}
                   onClick={() => setActiveCategory(cat)}
                   className={cn(
-                    "touch-manipulation transition-colors",
-                    tabClass,
+                    "min-h-12 touch-manipulation rounded-xl px-4 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground hover:bg-muted",
@@ -147,14 +78,14 @@ export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
                 key={s.filename}
                 variant="secondary"
                 size="lg"
-                disabled={runningName !== null && runningName !== s.filename}
-                onClick={() => handleRun(s)}
+                disabled={runningFile !== null && runningFile !== s.filename}
+                onClick={() => void run(s)}
                 className="h-auto min-h-14 w-full justify-between gap-3 py-3 text-left"
                 title={s.filename}
               >
                 <span className="line-clamp-2 text-base">{s.name}</span>
                 <span className="flex shrink-0 items-center gap-2">
-                  {runningName === s.filename && (
+                  {runningFile === s.filename && (
                     <Loader2 className="size-4 animate-spin" aria-hidden />
                   )}
                   {s.hotkey && (
@@ -168,24 +99,6 @@ export function ScriptRunner({ embedded = false }: ScriptRunnerProps) {
           </div>
         </div>
       )}
-    </>
-  );
-
-  if (embedded) {
-    return <div className="flex flex-col gap-2">{body}</div>;
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Scripts</CardTitle>
-        <CardDescription>
-          {loading
-            ? "Loading…"
-            : `${scripts.length} script${scripts.length === 1 ? "" : "s"} available`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>{body}</CardContent>
-    </Card>
+    </div>
   );
 }

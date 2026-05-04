@@ -129,9 +129,9 @@ function AppShell() {
             <SheetTitle id={sheetMeta.titleId}>{sheetMeta.title}</SheetTitle>
           </SheetHeader>
           <div className="max-h-[calc(100%-3.5rem)] min-h-0 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
-            {sheet === "scripts" && <ScriptRunner embedded />}
-            {sheet === "display" && <DisplaySource embedded />}
-            {sheet === "pupil" && <PupilMonitor embedded />}
+            {sheet === "scripts" && <ScriptRunner />}
+            {sheet === "display" && <DisplaySource />}
+            {sheet === "pupil" && <PupilMonitor />}
           </div>
         </SheetContent>
       </Sheet>

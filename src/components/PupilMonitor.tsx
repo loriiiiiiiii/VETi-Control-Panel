@@ -1,26 +1,9 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useBackend } from "@/context/BackendContext";
-import {
-  describeError,
-  getPupilInfo,
-  getPupilMjpegUrl,
-  type PupilInfo,
-} from "@/lib/api";
+import { describeError, type PupilInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-type PupilMonitorProps = {
-  embedded?: boolean;
-};
 
 function formatNumber(value: number, fractionDigits = 2): string {
   if (!Number.isFinite(value)) return "—";
@@ -103,9 +86,8 @@ function Flag({ label, on }: { label: string; on: boolean }) {
   );
 }
 
-export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
-  const { activeUrl } = useBackend();
-  const streamSrc = getPupilMjpegUrl(activeUrl);
+export function PupilMonitor() {
+  const { activeUrl, client } = useBackend();
   const [imgKey, setImgKey] = useState(0);
   const [streamError, setStreamError] = useState<string | null>(null);
 
@@ -118,7 +100,7 @@ export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
     setMetricsLoading(true);
     setMetricsError(null);
     try {
-      const next = await getPupilInfo();
+      const next = await client.getPupilInfo();
       setData(next);
       setLastUpdated(new Date().toISOString());
     } catch (err) {
@@ -126,7 +108,7 @@ export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
     } finally {
       setMetricsLoading(false);
     }
-  }, []);
+  }, [client]);
 
   // Re-fetch metrics and reconnect stream when the active backend changes
   useEffect(() => {
@@ -173,7 +155,7 @@ export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
       <div className="relative overflow-hidden rounded-xl border border-border bg-black">
         <img
           key={imgKey}
-          src={streamSrc}
+          src={client.mjpegUrl}
           alt="Pupil camera"
           className="mx-auto block max-h-[min(50dvh,480px)] w-full object-contain"
           onLoad={() => setStreamError(null)}
@@ -188,14 +170,6 @@ export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
         <div className="mt-3 rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
           {streamError}
         </div>
-      )}
-      {!embedded && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Source:{" "}
-          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
-            {streamSrc}
-          </code>
-        </p>
       )}
     </div>
   );
@@ -285,36 +259,13 @@ export function PupilMonitor({ embedded = false }: PupilMonitorProps) {
     </div>
   );
 
-  const streamAndMetrics = (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      {streamBlock}
-      {metricsBlock}
-    </div>
-  );
-
-  if (embedded) {
-    return (
-      <div className="flex flex-col gap-4">
-        {actionRow}
-        {streamAndMetrics}
-      </div>
-    );
-  }
-
   return (
-    <Card>
-      <CardHeader className="border-b">
-        <div className="min-w-0">
-          <CardTitle>Pupil monitor</CardTitle>
-          <CardDescription>
-            Live MJPEG camera stream (no polling)
-          </CardDescription>
-        </div>
-        <CardAction className="w-full pt-2 sm:w-auto sm:pt-0">
-          {actionRow}
-        </CardAction>
-      </CardHeader>
-      <CardContent className="pt-6">{streamAndMetrics}</CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      {actionRow}
+      <div className="flex flex-col gap-4 lg:flex-row">
+        {streamBlock}
+        {metricsBlock}
+      </div>
+    </div>
   );
 }

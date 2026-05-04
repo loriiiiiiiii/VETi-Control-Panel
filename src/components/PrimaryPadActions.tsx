@@ -1,5 +1,5 @@
 import { Eye, Loader2, ScanLine } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -8,62 +8,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useBackend } from "@/context/BackendContext";
-import { describeError, getScripts, runScript, type ScriptInfo } from "@/lib/api";
+import { useScripts } from "@/hooks/useScripts";
+import { type ScriptInfo } from "@/lib/api";
 import { resolveQuickScripts } from "@/lib/quickScripts";
 import { cn } from "@/lib/utils";
 
 export function PrimaryPadActions() {
-  const { activeUrl } = useBackend();
-  const [scripts, setScripts] = useState<ScriptInfo[]>([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [runningFile, setRunningFile] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!activeUrl) return;
-    setScripts([]);
-    setListLoading(true);
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await getScripts();
-        if (!cancelled) setScripts(data);
-      } catch {
-        if (!cancelled) setScripts([]);
-      } finally {
-        if (!cancelled) setListLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeUrl]);
-
+  const { scripts, loading, runningFile, run } = useScripts();
   const { scan, visionTest } = useMemo(
     () => resolveQuickScripts(scripts),
     [scripts],
   );
 
-  const runNamed = async (displayName: string, script: ScriptInfo | null) => {
+  const runNamed = (displayName: string, script: ScriptInfo | null) => {
     if (!script) {
       toast.error(`${displayName} is not available on this device.`);
       return;
     }
-    setRunningFile(script.filename);
-    try {
-      const res = await runScript(script.name || script.filename);
-      if (res.success) {
-        toast.success(`Started: ${displayName}`);
-      } else if (res.error === "busy") {
-        toast.error(`Busy: ${displayName}`);
-      } else {
-        toast.error(res.error ?? `Failed: ${displayName}`);
-      }
-    } catch (err) {
-      toast.error(`${describeError(err)}`);
-    } finally {
-      setRunningFile(null);
-    }
+    void run(script, displayName);
   };
 
   return (
@@ -72,20 +34,20 @@ export function PrimaryPadActions() {
         title="Scan"
         description="Full eye processing · Shift+F5"
         icon={<ScanLine className="size-8 text-muted-foreground" aria-hidden />}
-        disabled={listLoading}
+        disabled={loading}
         busy={runningFile === scan?.filename}
-        onActivate={() => void runNamed("Scan", scan)}
+        onActivate={() => runNamed("Scan", scan)}
       />
       <ActionCard
         title="Vision Test"
         description="App vision workflow · F10"
         icon={<Eye className="size-8 text-muted-foreground" aria-hidden />}
-        disabled={listLoading}
+        disabled={loading}
         busy={runningFile === visionTest?.filename}
-        onActivate={() => void runNamed("Vision Test", visionTest)}
+        onActivate={() => runNamed("Vision Test", visionTest)}
       />
 
-      {listLoading && (
+      {loading && (
         <p className="col-span-full text-center text-sm text-muted-foreground">
           Loading actions…
         </p>

@@ -7,9 +7,8 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { useBackend, type Backend } from "@/context/BackendContext";
+import { vetiUrl, VETI_PORT } from "@/lib/veti";
 import { cn } from "@/lib/utils";
-
-const BACKEND_PORT = 8888;
 
 function isValidIp(value: string): boolean {
   return /^(\d{1,3}\.){3}\d{1,3}$/.test(value.trim());
@@ -19,8 +18,8 @@ function makeBackend(ip: string): Backend {
   const clean = ip.trim();
   return {
     ip: clean,
-    url: `http://${clean}:${BACKEND_PORT}`,
-    label: `${clean}:${BACKEND_PORT}`,
+    url: vetiUrl(clean),
+    label: `${clean}:${VETI_PORT}`,
   };
 }
 

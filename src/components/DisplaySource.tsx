@@ -2,32 +2,18 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  describeError,
-  DISPLAY_SCENES,
-  setDisplaySource,
-  type DisplayScene,
-} from "@/lib/api";
+import { useBackend } from "@/context/BackendContext";
+import { describeError, DISPLAY_SCENES, type DisplayScene } from "@/lib/api";
 
-type DisplaySourceProps = {
-  embedded?: boolean;
-};
-
-export function DisplaySource({ embedded = false }: DisplaySourceProps) {
+export function DisplaySource() {
+  const { client } = useBackend();
   const [activeScene, setActiveScene] = useState<DisplayScene | null>(null);
   const [pending, setPending] = useState<DisplayScene | null>(null);
 
   const handleClick = async (scene: DisplayScene) => {
     setPending(scene);
     try {
-      const res = await setDisplaySource(scene);
+      const res = await client.setDisplaySource(scene);
       if (res.success) {
         setActiveScene(res.scene ?? scene);
         toast.success(`Display: ${res.scene ?? scene}`);
@@ -41,7 +27,7 @@ export function DisplaySource({ embedded = false }: DisplaySourceProps) {
     }
   };
 
-  const grid = (
+  return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {DISPLAY_SCENES.map((scene) => (
         <Button
@@ -59,19 +45,5 @@ export function DisplaySource({ embedded = false }: DisplaySourceProps) {
         </Button>
       ))}
     </div>
-  );
-
-  if (embedded) {
-    return grid;
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Display source</CardTitle>
-        <CardDescription>Switch the HMD display scene</CardDescription>
-      </CardHeader>
-      <CardContent>{grid}</CardContent>
-    </Card>
   );
 }

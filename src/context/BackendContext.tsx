@@ -13,17 +13,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { http } from "@/lib/api";
+import { createApiClient, type ApiClient } from "@/lib/api";
+import {
+  vetiUrl,
+  VETI_PORT,
+  VETI_SERVICE_DOMAIN,
+  VETI_SERVICE_TYPE,
+} from "@/lib/veti";
 
 const STORAGE_KEY = "interaction-board:active-backend";
 
-const SERVICE_TYPE = "_veti._tcp.";
-const SERVICE_DOMAIN = "local.";
-
 const LOCALHOST_BACKEND: Backend = {
-  url: "http://localhost:8888",
+  url: vetiUrl("localhost"),
   ip: "localhost",
-  label: "localhost:8888",
+  label: `localhost:${VETI_PORT}`,
 };
 
 export type Backend = {
@@ -44,7 +47,12 @@ export type BackendContextValue = {
   active: Backend | null;
   /** Convenience shorthand: active?.url ?? '' */
   activeUrl: string;
-  /** Switch to a different backend. Updates the shared axios instance + storage. */
+  /**
+   * API client bound to the active backend. Use this for all API calls instead
+   * of importing shared axios instances — keeps backend dependency explicit.
+   */
+  client: ApiClient;
+  /** Switch to a different backend. Updates the bound API client + storage. */
   setActive: (b: Backend) => void;
   /** True while actively listening for backends (Android only). */
   scanning: boolean;
@@ -77,12 +85,13 @@ export function BackendProvider({ children }: { children: ReactNode }) {
 
   const [backends, setBackends] = useState<Backend[]>([]);
   const [active, setActiveState] = useState<Backend | null>(null);
+  const [client, setClient] = useState<ApiClient>(() => createApiClient(""));
   const [scanning, setScanning] = useState(false);
   const autoSelectedRef = useRef(false);
 
   const setActive = useCallback((b: Backend) => {
     setActiveState(b);
-    http.defaults.baseURL = b.url;
+    setClient(createApiClient(b.url));
     saveStored(b);
     autoSelectedRef.current = true;
     // Make sure the chosen backend is in the list (e.g. manual IP)
@@ -101,7 +110,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       if (!autoSelectedRef.current) {
         autoSelectedRef.current = true;
         setActiveState(b);
-        http.defaults.baseURL = b.url;
+        setClient(createApiClient(b.url));
         saveStored(b);
       }
     },
@@ -113,7 +122,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Android: open an mDNS watch for _veti._tcp.local. Returns a cleanup fn.
+   * Android: open an mDNS watch for the VETi service. Returns a cleanup fn.
    * Web: no-op. Returns a cleanup fn.
    */
   const startDiscovery = useCallback(async (): Promise<() => void> => {
@@ -128,7 +137,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       if (result.action === "resolved") {
         const ip = svc.ipv4Addresses?.[0];
         if (!ip) return;
-        const url = `http://${ip}:${svc.port}`;
+        const url = vetiUrl(ip, svc.port);
         const friendly = svc.name?.trim() || `VETi @ ${ip}`;
         addBackend({
           url,
@@ -137,13 +146,13 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         });
       } else if (result.action === "removed") {
         const ip = svc.ipv4Addresses?.[0];
-        if (ip) removeBackend(`http://${ip}:${svc.port}`);
+        if (ip) removeBackend(vetiUrl(ip, svc.port));
       }
     };
 
     try {
       await ZeroConf.watch(
-        { type: SERVICE_TYPE, domain: SERVICE_DOMAIN },
+        { type: VETI_SERVICE_TYPE, domain: VETI_SERVICE_DOMAIN },
         handleResult,
       );
     } catch (err) {
@@ -154,8 +163,8 @@ export function BackendProvider({ children }: { children: ReactNode }) {
 
     return () => {
       void ZeroConf.unwatch({
-        type: SERVICE_TYPE,
-        domain: SERVICE_DOMAIN,
+        type: VETI_SERVICE_TYPE,
+        domain: VETI_SERVICE_DOMAIN,
       }).catch(() => {
         /* ignore — plugin may already be torn down */
       });
@@ -168,13 +177,13 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     const stored = loadStored();
     if (stored) {
       setActiveState(stored);
-      http.defaults.baseURL = stored.url;
+      setClient(createApiClient(stored.url));
       autoSelectedRef.current = true;
       setBackends([stored]);
     } else if (!isNative) {
       // Web with no saved backend → default to localhost
       setActiveState(LOCALHOST_BACKEND);
-      http.defaults.baseURL = LOCALHOST_BACKEND.url;
+      setClient(createApiClient(LOCALHOST_BACKEND.url));
       autoSelectedRef.current = true;
       setBackends([LOCALHOST_BACKEND]);
     }
@@ -199,8 +208,8 @@ export function BackendProvider({ children }: { children: ReactNode }) {
     if (isNative) {
       // Restart the watcher: unwatch then watch again
       void ZeroConf.unwatch({
-        type: SERVICE_TYPE,
-        domain: SERVICE_DOMAIN,
+        type: VETI_SERVICE_TYPE,
+        domain: VETI_SERVICE_DOMAIN,
       }).catch(() => {
         /* ignore */
       });
@@ -221,11 +230,12 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       backends,
       active,
       activeUrl: active?.url ?? "",
+      client,
       setActive,
       scanning,
       rescan,
     }),
-    [isNative, backends, active, setActive, scanning, rescan],
+    [isNative, backends, active, client, setActive, scanning, rescan],
   );
 
   return (

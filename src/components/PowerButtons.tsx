@@ -2,7 +2,8 @@ import { Loader2, Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { describeError, sleep, wakeup } from "@/lib/api";
+import { useBackend } from "@/context/BackendContext";
+import { describeError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type Pending = "wakeup" | "sleep" | null;
@@ -12,12 +13,13 @@ type PowerButtonsProps = {
 };
 
 export function PowerButtons({ className }: PowerButtonsProps) {
+  const { client } = useBackend();
   const [pending, setPending] = useState<Pending>(null);
 
   const handleWakeup = async () => {
     setPending("wakeup");
     try {
-      const res = await wakeup(true);
+      const res = await client.wakeup(true);
       if (res.success) {
         toast.success("System woken up");
       } else {
@@ -33,7 +35,7 @@ export function PowerButtons({ className }: PowerButtonsProps) {
   const handleSleep = async () => {
     setPending("sleep");
     try {
-      const res = await sleep();
+      const res = await client.sleep();
       if (res.success) {
         toast.success("System asleep");
       } else {
