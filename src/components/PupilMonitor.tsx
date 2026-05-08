@@ -150,13 +150,27 @@ export function PupilMonitor() {
     </div>
   );
 
+  // Resolve the pupil stream for the active eye; fall back to left until data arrives.
+  const pupilStreamUrl =
+    data?.eye === "right"
+      ? client.streamUrls.pupil_right
+      : client.streamUrls.pupil_left;
+
+  const pupilStreamLabel =
+    data?.eye === "right" ? "Right pupil camera" : "Left pupil camera";
+
   const streamBlock = (
     <div className="min-w-0 flex-1">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          {pupilStreamLabel}
+        </span>
+      </div>
       <div className="relative overflow-hidden rounded-xl border border-border bg-black">
         <img
           key={imgKey}
-          src={client.mjpegUrl}
-          alt="Pupil camera"
+          src={pupilStreamUrl}
+          alt={pupilStreamLabel}
           className="mx-auto block max-h-[min(50dvh,480px)] w-full object-contain"
           onLoad={() => setStreamError(null)}
           onError={() =>

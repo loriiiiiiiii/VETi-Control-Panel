@@ -112,8 +112,20 @@ export function createApiClient(baseURL: string) {
     getPupilInfo: (): Promise<PupilInfo> =>
       http.get<PupilInfo>("/api/pupil/info").then((r) => r.data),
 
-    /** MJPEG pupil camera stream URL for this backend. */
-    mjpegUrl: `${baseURL}/mjpg`,
+    /**
+     * MJPEG live stream URLs for this backend.
+     * Each stream is always active and independent of what the HMD is showing.
+     *   slo         — live SLO camera feed (active eye)
+     *   oct         — live OCT feed (active eye)
+     *   pupil_left  — left pupil camera
+     *   pupil_right — right pupil camera
+     */
+    streamUrls: {
+      slo: `${baseURL}/api/stream/slo`,
+      oct: `${baseURL}/api/stream/oct`,
+      pupil_left: `${baseURL}/api/stream/pupil_left`,
+      pupil_right: `${baseURL}/api/stream/pupil_right`,
+    },
   };
 }
 

@@ -139,11 +139,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         if (!ip) return;
         const url = vetiUrl(ip, svc.port);
         const friendly = svc.name?.trim() || `VETi @ ${ip}`;
-        addBackend({
-          url,
-          ip,
-          label: `${friendly} (${ip}:${svc.port})`,
-        });
+        addBackend({url, ip, label: `${friendly} [${ip}]`});
       } else if (result.action === "removed") {
         const ip = svc.ipv4Addresses?.[0];
         if (ip) removeBackend(vetiUrl(ip, svc.port));
