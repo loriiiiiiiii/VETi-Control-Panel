@@ -41,13 +41,13 @@ function AppShell() {
   return (
     <TabBarRoot value={activeTab} onValueChange={setActiveTab}>
       <div className="flex min-h-dvh flex-col bg-background">
-        <header className="sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-md">
-          <div
-            className={cn(
-              "mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3",
-              "pt-[max(0.75rem,env(safe-area-inset-top))]",
-            )}
-          >
+        <header
+          className={cn(
+            "sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-md",
+            "pt-[env(safe-area-inset-top)]",
+          )}
+        >
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
               <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                 Interaction Board
@@ -61,12 +61,7 @@ function AppShell() {
           </div>
         </header>
 
-        <main
-          className={cn(
-            "mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8",
-            "pb-[calc(5.5rem+env(safe-area-inset-bottom))]",
-          )}
-        >
+        <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
           <TabBarContent value="home" className="flex flex-1 flex-col justify-center outline-none">
             <HomeView />
           </TabBarContent>
@@ -78,6 +73,8 @@ function AppShell() {
           </TabBarContent>
         </main>
 
+        {/* Spacer matching the fixed tab bar height so content scrolls clear of it */}
+        <div className="h-[calc(4rem+env(safe-area-inset-bottom))]" aria-hidden />
         <TabBarList items={TAB_ITEMS} />
       </div>
     </TabBarRoot>
