@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { WsStreamImg } from "@/components/WsStreamImg";
 import { useBackend } from "@/context/BackendContext";
 import { describeError, DISPLAY_SCENES, type DisplayScene } from "@/lib/api";
 
@@ -14,10 +15,10 @@ const STREAMS = [
 
 function StreamTile({
   label,
-  src,
+  url,
 }: {
   label: string;
-  src: string;
+  url: string;
 }) {
   const [imgKey, setImgKey] = useState(0);
   const [error, setError] = useState(false);
@@ -37,9 +38,9 @@ function StreamTile({
         title="Click to reconnect"
         onClick={reconnect}
       >
-        <img
+        <WsStreamImg
           key={imgKey}
-          src={src}
+          url={url}
           alt={`${label} live stream`}
           className="mx-auto block aspect-video w-full object-contain"
           onLoad={() => setError(false)}
@@ -86,7 +87,7 @@ export function DisplaySource() {
         </h3>
         <div className="grid grid-cols-2 gap-3">
           {STREAMS.map(({ key, label }) => (
-            <StreamTile key={key} label={label} src={client.streamUrls[key]} />
+            <StreamTile key={key} label={label} url={client.streamUrls[key]} />
           ))}
         </div>
       </div>

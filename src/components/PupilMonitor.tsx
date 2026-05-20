@@ -1,6 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { WsStreamImg } from "@/components/WsStreamImg";
 import { useBackend } from "@/context/BackendContext";
 import { describeError, type PupilInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -167,17 +168,13 @@ export function PupilMonitor() {
         </span>
       </div>
       <div className="relative overflow-hidden rounded-xl border border-border bg-black">
-        <img
+        <WsStreamImg
           key={imgKey}
-          src={pupilStreamUrl}
+          url={pupilStreamUrl}
           alt={pupilStreamLabel}
           className="mx-auto block max-h-[min(50dvh,480px)] w-full object-contain"
           onLoad={() => setStreamError(null)}
-          onError={() =>
-            setStreamError(
-              "Stream failed to load. Check the backend and try Reconnect.",
-            )
-          }
+          onError={(msg) => setStreamError(`${msg} — Check the backend and try Reconnect.`)}
         />
       </div>
       {streamError && (

@@ -113,18 +113,19 @@ export function createApiClient(baseURL: string) {
       http.get<PupilInfo>("/api/pupil/info").then((r) => r.data),
 
     /**
-     * MJPEG live stream URLs for this backend.
-     * Each stream is always active and independent of what the HMD is showing.
+     * WebSocket live stream URLs for this backend. Each frame is a binary
+     * JPEG blob pushed by the server. Streams are always active regardless of
+     * what is shown on the HMD; clients should reconnect on close.
      *   slo         — live SLO camera feed (active eye)
      *   oct         — live OCT feed (active eye)
      *   pupil_left  — left pupil camera
      *   pupil_right — right pupil camera
      */
     streamUrls: {
-      slo: `${baseURL}/api/stream/slo`,
-      oct: `${baseURL}/api/stream/oct`,
-      pupil_left: `${baseURL}/api/stream/pupil_left`,
-      pupil_right: `${baseURL}/api/stream/pupil_right`,
+      slo: `${baseURL.replace(/^http/, "ws")}/api/stream/slo`,
+      oct: `${baseURL.replace(/^http/, "ws")}/api/stream/oct`,
+      pupil_left: `${baseURL.replace(/^http/, "ws")}/api/stream/pupil_left`,
+      pupil_right: `${baseURL.replace(/^http/, "ws")}/api/stream/pupil_right`,
     },
   };
 }
