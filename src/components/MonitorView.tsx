@@ -1,10 +1,20 @@
-import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { WsStreamImg } from "@/components/WsStreamImg";
+import {
+  SegmentedControl,
+  type Segment,
+} from "@/components/ui/segmented-control";
 import { useBackend } from "@/context/BackendContext";
 import { describeError, type PupilInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const SEGMENTS: Segment[] = [
+  { id: "imaging", label: "Imaging" },
+  { id: "pupil", label: "Pupil" },
+];
+
+const POLL_INTERVAL_MS = 3_000;
 
 function formatNumber(value: number, fractionDigits = 2): string {
   if (!Number.isFinite(value)) return "—";
@@ -24,19 +34,14 @@ function formatDuration(ms: number): string {
 function StatusBadge({ data }: { data: PupilInfo }) {
   const tone = data.detected
     ? data.stable
-      ? "bg-ok/15 text-ok border-ok/40"
-      : "bg-warn/15 text-warn border-warn/40"
-    : "bg-err/15 text-err border-err/40";
+      ? "border-ok/40 bg-ok/15 text-ok"
+      : "border-warn/40 bg-warn/15 text-warn"
+    : "border-err/40 bg-err/15 text-err";
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        tone,
-      )}
-    >
+    <Badge variant="outline" className={tone}>
       {data.status}
-    </span>
+    </Badge>
   );
 }
 
@@ -87,121 +92,115 @@ function Flag({ label, on }: { label: string; on: boolean }) {
   );
 }
 
-export function PupilMonitor() {
-  const { activeUrl, client } = useBackend();
+function StreamTile({
+  label,
+  url,
+  className,
+}: {
+  label: string;
+  url: string;
+  className?: string;
+}) {
   const [imgKey, setImgKey] = useState(0);
-  const [streamError, setStreamError] = useState<string | null>(null);
+
+  const reconnect = useCallback(() => {
+    setImgKey((k) => k + 1);
+  }, []);
+
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div
+        className="touch-manipulation relative cursor-pointer overflow-hidden rounded-xl border border-border bg-black"
+        title="Tap to reconnect"
+        onClick={reconnect}
+      >
+        <WsStreamImg
+          key={imgKey}
+          url={url}
+          alt={`${label} live stream`}
+          className="mx-auto block aspect-video w-full object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ImagingPanel() {
+  const { client } = useBackend();
+
+  return (
+    <div className="flex flex-col gap-4 landscape:flex-row">
+      <StreamTile
+        label="SLO"
+        url={client.streamUrls.slo}
+        className="landscape:flex-1"
+      />
+      <StreamTile
+        label="OCT"
+        url={client.streamUrls.oct}
+        className="landscape:flex-1"
+      />
+    </div>
+  );
+}
+
+function PupilPanel() {
+  const { activeUrl, client } = useBackend();
 
   const [data, setData] = useState<PupilInfo | null>(null);
   const [metricsError, setMetricsError] = useState<string | null>(null);
-  const [metricsLoading, setMetricsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const refreshMetrics = useCallback(async () => {
-    setMetricsLoading(true);
-    setMetricsError(null);
     try {
       const next = await client.getPupilInfo();
       setData(next);
       setLastUpdated(new Date().toISOString());
+      setMetricsError(null);
     } catch (err) {
       setMetricsError(describeError(err));
-    } finally {
-      setMetricsLoading(false);
     }
   }, [client]);
 
-  // Re-fetch metrics and reconnect stream when the active backend changes
   useEffect(() => {
     if (!activeUrl) return;
     setData(null);
     setMetricsError(null);
-    setStreamError(null);
-    setImgKey((k) => k + 1);
     void refreshMetrics();
   }, [activeUrl, refreshMetrics]);
 
-  const reconnectStream = useCallback(() => {
-    setStreamError(null);
-    setImgKey((k) => k + 1);
-  }, []);
+  useEffect(() => {
+    const id = setInterval(() => void refreshMetrics(), POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [refreshMetrics]);
 
-  const actionRow = (
-    <div className="flex flex-wrap justify-end gap-2">
-      <Button
-        size="lg"
-        variant="secondary"
-        disabled={metricsLoading}
-        onClick={() => void refreshMetrics()}
-        className="min-h-12 flex-1 sm:flex-none"
-      >
-        {metricsLoading && (
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-        )}
-        Refresh metrics
-      </Button>
-      <Button
-        size="lg"
-        variant="secondary"
-        onClick={reconnectStream}
-        className="min-h-12 flex-1 sm:flex-none"
-      >
-        Reconnect stream
-      </Button>
-    </div>
-  );
-
-  // Resolve the pupil stream for the active eye; fall back to left until data arrives.
-  const pupilStreamUrl =
-    data?.eye === "right"
-      ? client.streamUrls.pupil_right
-      : client.streamUrls.pupil_left;
-
-  const pupilStreamLabel =
-    data?.eye === "right" ? "Right pupil camera" : "Left pupil camera";
-
-  const streamBlock = (
-    <div className="min-w-0 flex-1">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-          {pupilStreamLabel}
-        </span>
-      </div>
-      <div className="relative overflow-hidden rounded-xl border border-border bg-black">
-        <WsStreamImg
-          key={imgKey}
-          url={pupilStreamUrl}
-          alt={pupilStreamLabel}
-          className="mx-auto block max-h-[min(50dvh,480px)] w-full object-contain"
-          onLoad={() => setStreamError(null)}
-          onError={(msg) => setStreamError(`${msg} — Check the backend and try Reconnect.`)}
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 landscape:flex-row">
+        <StreamTile
+          label="Pupil left"
+          url={client.streamUrls.pupil_left}
+          className="landscape:flex-1"
+        />
+        <StreamTile
+          label="Pupil right"
+          url={client.streamUrls.pupil_right}
+          className="landscape:flex-1"
         />
       </div>
-      {streamError && (
-        <div className="mt-3 rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
-          {streamError}
-        </div>
-      )}
-    </div>
-  );
-
-  const metricsBlock = (
-    <div className="w-full shrink-0 lg:w-[min(100%,380px)]">
-      {metricsLoading && !data && (
-        <div className="py-3 text-base text-muted-foreground">
-          Loading metrics…
-        </div>
-      )}
-
-      {!metricsLoading && !data && !metricsError && (
-        <div className="py-3 text-base text-muted-foreground">
-          No metrics yet. Tap Refresh metrics.
-        </div>
-      )}
 
       {metricsError && (
-        <div className="mb-3 rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
+        <div className="rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
           {metricsError}
+        </div>
+      )}
+
+      {!data && !metricsError && (
+        <div className="py-3 text-base text-muted-foreground">
+          Loading metrics…
         </div>
       )}
 
@@ -269,14 +268,21 @@ export function PupilMonitor() {
       )}
     </div>
   );
+}
+
+export function MonitorView() {
+  const [segment, setSegment] = useState("imaging");
 
   return (
     <div className="flex flex-col gap-4">
-      {actionRow}
-      <div className="flex flex-col gap-4 lg:flex-row">
-        {streamBlock}
-        {metricsBlock}
-      </div>
+      <SegmentedControl
+        segments={SEGMENTS}
+        activeSegment={segment}
+        onSegmentChange={setSegment}
+      />
+
+      {segment === "imaging" && <ImagingPanel />}
+      {segment === "pupil" && <PupilPanel />}
     </div>
   );
 }

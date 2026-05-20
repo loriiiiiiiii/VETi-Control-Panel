@@ -51,7 +51,7 @@ export function PowerButtons({ className }: PowerButtonsProps) {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center gap-2 sm:gap-2.5",
+        "flex shrink-0 items-center",
         className,
       )}
     >

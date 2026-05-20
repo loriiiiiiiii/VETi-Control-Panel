@@ -27,13 +27,13 @@ One of the two primary-pad actions (Scan, Vision Test) resolved from the full sc
 A named HMD rendering mode (`default`, `blank`, `active_eye`, `earth`, `slo`, `oct`, `file`). Set via `POST /api/display/source`. Managed in `DisplaySource`.
 
 **Pupil stream**
-Live MJPEG feed from the pupil camera at `<backend>/mjpg`. Rendered as a plain `<img>` tag; no polling. On-demand metrics snapshot available via `GET /api/pupil/info`.
+Live WebSocket binary (JPEG) feed from the pupil camera, rendered via `WsStreamImg`. The active eye is auto-selected from pupil metrics. Metrics auto-refresh every 3 seconds via `setInterval`.
 
-**Sheet panel**
-A bottom sheet (`ScriptRunner`, `DisplaySource`, `PupilMonitor`) opened from the dock nav in `AppShell`. Feature components render their content directly — the sheet provides the container and header. Components do not own their own Card wrapper.
+**Tab**
+A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Three tabs: Home (actions + display scene buttons), Scripts (`ScriptRunner`), Monitor (cameras + pupil, switchable via segmented control).
 
 ## Invariants
 
 - `BackendContext` is the only place that creates `ApiClient` instances. All other modules read `client` from `useBackend()`.
 - VETi device port (`8888`) and mDNS service type (`_veti._tcp.`) are defined once in `lib/veti.ts`.
-- The pupil monitor uses on-demand refresh (button-triggered), not continuous polling.
+- The pupil monitor uses 3-second auto-polling (`setInterval`) for metrics — no manual refresh button.

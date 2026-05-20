@@ -1,21 +1,28 @@
 import { Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl, type Segment } from "@/components/ui/segmented-control";
+import { useBackend } from "@/context/BackendContext";
+import { describeError, DISPLAY_SCENES, type DisplayScene } from "@/lib/api";
 import { useScripts } from "@/hooks/useScripts";
-import { cn } from "@/lib/utils";
 
 const ALL_TAB = "All";
 
 export function ScriptRunner() {
+  const { client } = useBackend();
   const { scripts, loading, error: loadError, runningFile, run } = useScripts();
   const [activeCategory, setActiveCategory] = useState<string>(ALL_TAB);
+  const [activeScene, setActiveScene] = useState<DisplayScene | null>(null);
+  const [pendingScene, setPendingScene] = useState<DisplayScene | null>(null);
 
-  const categories = useMemo(() => {
+  const categorySegments: Segment[] = useMemo(() => {
     const set = new Set<string>();
     for (const s of scripts) {
       if (s.category) set.add(s.category);
     }
-    return [ALL_TAB, ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+    const cats = [ALL_TAB, ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+    return cats.map((c) => ({ id: c, label: c }));
   }, [scripts]);
 
   const filtered = useMemo(() => {
@@ -23,8 +30,48 @@ export function ScriptRunner() {
     return scripts.filter((s) => s.category === activeCategory);
   }, [scripts, activeCategory]);
 
+  const handleSceneClick = async (scene: DisplayScene) => {
+    setPendingScene(scene);
+    try {
+      const res = await client.setDisplaySource(scene);
+      if (res.success) {
+        setActiveScene(res.scene ?? scene);
+        toast.success(`Display: ${res.scene ?? scene}`);
+      } else {
+        toast.error(res.error ?? `Failed to set scene: ${scene}`);
+      }
+    } catch (err) {
+      toast.error(`Display failed: ${describeError(err)}`);
+    } finally {
+      setPendingScene(null);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-6">
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-foreground">
+          Display source
+        </h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {DISPLAY_SCENES.map((scene) => (
+            <Button
+              key={scene}
+              variant={activeScene === scene ? "default" : "outline"}
+              size="lg"
+              disabled={pendingScene !== null && pendingScene !== scene}
+              onClick={() => handleSceneClick(scene)}
+              className="min-h-14 w-full capitalize"
+            >
+              {pendingScene === scene && (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              )}
+              {scene.replace(/_/g, " ")}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {loading && (
         <div className="py-8 text-center text-base text-muted-foreground">
           Loading scripts…
@@ -45,32 +92,12 @@ export function ScriptRunner() {
 
       {!loading && !loadError && scripts.length > 0 && (
         <div className="flex flex-col gap-4">
-          <div
-            role="tablist"
-            aria-label="Script categories"
-            className="flex flex-wrap gap-2"
-          >
-            {categories.map((cat) => {
-              const isActive = cat === activeCategory;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveCategory(cat)}
-                  className={cn(
-                    "min-h-12 touch-manipulation rounded-xl px-4 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-muted",
-                  )}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl
+            segments={categorySegments}
+            activeSegment={activeCategory}
+            onSegmentChange={setActiveCategory}
+            wrap
+          />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {filtered.map((s) => (
