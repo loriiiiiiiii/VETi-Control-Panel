@@ -179,16 +179,16 @@ function PupilPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4 landscape:flex-row">
+      <div className="flex flex-row gap-4">
         <StreamTile
           label="Pupil left"
           url={client.streamUrls.pupil_left}
-          className="landscape:flex-1"
+          className="flex-1"
         />
         <StreamTile
           label="Pupil right"
           url={client.streamUrls.pupil_right}
-          className="landscape:flex-1"
+          className="flex-1"
         />
       </div>
 

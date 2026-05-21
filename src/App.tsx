@@ -61,7 +61,7 @@ function AppShell() {
           </div>
         </header>
 
-        <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
+        <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-6 sm:px-10 sm:py-8">
           <TabBarContent value="home" className="flex flex-1 flex-col justify-center outline-none">
             <HomeView />
           </TabBarContent>
