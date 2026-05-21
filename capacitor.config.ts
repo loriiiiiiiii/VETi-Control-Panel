@@ -12,6 +12,12 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     overScrollMode: "never",
   },
+  plugins: {
+    SystemBars: {
+      insetsHandling: "css",
+      style: "DEFAULT",
+    },
+  },
 };
 
 export default config;

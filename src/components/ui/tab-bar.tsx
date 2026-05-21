@@ -22,7 +22,7 @@ function TabBarList({
       data-slot="tab-bar"
       className={cn(
         "fixed bottom-0 left-0 right-0 z-30 flex justify-center",
-        "px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "px-4 pb-[max(0.5rem,var(--inset-bottom))]",
         className,
       )}
       aria-label="Main navigation"

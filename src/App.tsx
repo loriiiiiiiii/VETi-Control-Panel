@@ -29,7 +29,7 @@ export function App() {
         richColors
         closeButton
         position="top-center"
-        className="pt-[max(0.5rem,env(safe-area-inset-top))]"
+        className="pt-[max(0.5rem,var(--inset-top))]"
       />
     </BackendProvider>
   );
@@ -44,7 +44,7 @@ function AppShell() {
         <header
           className={cn(
             "sticky top-0 z-40 border-b border-border bg-card/80 backdrop-blur-md",
-            "pt-[env(safe-area-inset-top)]",
+            "pt-[var(--inset-top)]",
           )}
         >
           <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3">
@@ -74,7 +74,7 @@ function AppShell() {
         </main>
 
         {/* Spacer matching the fixed tab bar height so content scrolls clear of it */}
-        <div className="h-[calc(4rem+env(safe-area-inset-bottom))]" aria-hidden />
+        <div className="h-[calc(4rem+var(--inset-bottom))]" aria-hidden />
         <TabBarList items={TAB_ITEMS} />
       </div>
     </TabBarRoot>
