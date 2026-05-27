@@ -14,14 +14,24 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
+      "/api/stream": {
+        target: "https://localhost:8443",
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
       "/api": { target: "http://localhost:8888", changeOrigin: true },
-      "/mjpg": { target: "http://localhost:8888", changeOrigin: true },
     },
   },
   preview: {
     proxy: {
+      "/api/stream": {
+        target: "https://localhost:8443",
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
       "/api": { target: "http://localhost:8888", changeOrigin: true },
-      "/mjpg": { target: "http://localhost:8888", changeOrigin: true },
     },
   },
   build: {

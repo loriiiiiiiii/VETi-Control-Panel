@@ -121,7 +121,7 @@ function StreamTile({
           key={imgKey}
           url={url}
           alt={`${label} live stream`}
-          className="mx-auto block aspect-video w-full object-contain"
+          className="mx-auto block w-full"
         />
       </div>
     </div>

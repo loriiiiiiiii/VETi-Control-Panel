@@ -113,20 +113,18 @@ export function createApiClient(baseURL: string) {
       http.get<PupilInfo>("/api/pupil/info").then((r) => r.data),
 
     /**
-     * WebSocket live stream URLs for this backend. Each frame is a binary
-     * JPEG blob pushed by the server. Streams are always active regardless of
-     * what is shown on the HMD; clients should reconnect on close.
-     *   slo         — live SLO camera feed (active eye)
-     *   oct         — live OCT feed (active eye)
-     *   pupil_left  — left pupil camera
-     *   pupil_right — right pupil camera
+     * WebSocket live stream URLs for this backend.
+     * Scheme follows the base URL: https → wss (WebCodecs), http → ws (JPEG).
      */
-    streamUrls: {
-      slo: `${baseURL.replace(/^http/, "ws")}/api/stream/slo`,
-      oct: `${baseURL.replace(/^http/, "ws")}/api/stream/oct`,
-      pupil_left: `${baseURL.replace(/^http/, "ws")}/api/stream/pupil_left`,
-      pupil_right: `${baseURL.replace(/^http/, "ws")}/api/stream/pupil_right`,
-    },
+    streamUrls: (() => {
+      const wsBase = baseURL.replace(/^http/, "ws");
+      return {
+        slo: `${wsBase}/api/stream/slo`,
+        oct: `${wsBase}/api/stream/oct`,
+        pupil_left: `${wsBase}/api/stream/pupil_left`,
+        pupil_right: `${wsBase}/api/stream/pupil_right`,
+      };
+    })(),
   };
 }
 
