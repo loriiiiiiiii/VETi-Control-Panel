@@ -59,6 +59,7 @@ export function WsStreamImg({ url, alt, className, onLoad, onError }: Props) {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let frameTimestamp = 0;
     let firedOnLoad = false;
+    let hasHandshakeAspect = false;
     let protocol: Protocol = "unknown";
 
     // --- WebCodecs frame scheduling (drops stale frames) ---
@@ -74,7 +75,9 @@ export function WsStreamImg({ url, alt, className, onLoad, onError }: Props) {
 
       canvas.width = frame.displayWidth;
       canvas.height = frame.displayHeight;
-      canvas.style.aspectRatio = `${frame.displayWidth}/${frame.displayHeight}`;
+      if (!hasHandshakeAspect) {
+        canvas.style.aspectRatio = `${frame.displayWidth}/${frame.displayHeight}`;
+      }
       ctx.drawImage(frame, 0, 0);
       frame.close();
 
@@ -102,6 +105,7 @@ export function WsStreamImg({ url, alt, className, onLoad, onError }: Props) {
 
       if (aspect > 0) {
         canvas.style.aspectRatio = String(aspect);
+        hasHandshakeAspect = true;
       }
 
       decoder = new VideoDecoder({

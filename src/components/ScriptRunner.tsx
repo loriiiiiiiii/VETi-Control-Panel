@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl, type Segment } from "@/components/ui/segmented-control";
 import { useBackend } from "@/context/BackendContext";
 import { describeError, DISPLAY_SCENES, type DisplayScene } from "@/lib/api";
@@ -73,8 +74,13 @@ export function ScriptRunner() {
       </div>
 
       {loading && (
-        <div className="py-8 text-center text-base text-muted-foreground">
-          Loading scripts…
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-10 w-full rounded-lg" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {Array.from({ length: 6 }, (_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
         </div>
       )}
 

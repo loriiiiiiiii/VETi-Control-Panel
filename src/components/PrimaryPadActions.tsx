@@ -8,13 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useScripts } from "@/hooks/useScripts";
 import { type ScriptInfo } from "@/lib/api";
 import { resolveQuickScripts } from "@/lib/quickScripts";
 import { cn } from "@/lib/utils";
 
 export function PrimaryPadActions() {
-  const { scripts, loading, runningFile, run } = useScripts();
+  const { scripts, loading, error, runningFile, run } = useScripts();
+  const showSkeleton = loading || !!error;
   const { scan, visionTest } = useMemo(
     () => resolveQuickScripts(scripts),
     [scripts],
@@ -34,7 +36,8 @@ export function PrimaryPadActions() {
         title="Scan"
         description="Full eye processing · Shift+F5"
         icon={<ScanLine className="size-8 text-muted-foreground" aria-hidden />}
-        disabled={loading}
+        loading={showSkeleton}
+        disabled={showSkeleton}
         busy={runningFile === scan?.filename}
         onActivate={() => runNamed("Scan", scan)}
       />
@@ -42,16 +45,11 @@ export function PrimaryPadActions() {
         title="Vision Test"
         description="App vision workflow · F10"
         icon={<Eye className="size-8 text-muted-foreground" aria-hidden />}
-        disabled={loading}
+        loading={showSkeleton}
+        disabled={showSkeleton}
         busy={runningFile === visionTest?.filename}
         onActivate={() => runNamed("Vision Test", visionTest)}
       />
-
-      {loading && (
-        <p className="col-span-full text-center text-sm text-muted-foreground">
-          Loading actions…
-        </p>
-      )}
     </div>
   );
 }
@@ -60,6 +58,7 @@ function ActionCard({
   title,
   description,
   icon,
+  loading: isLoading,
   disabled,
   busy,
   onActivate,
@@ -67,6 +66,7 @@ function ActionCard({
   title: string;
   description: string;
   icon: ReactNode;
+  loading?: boolean;
   disabled: boolean;
   busy: boolean;
   onActivate: () => void;
@@ -99,27 +99,44 @@ function ActionCard({
       }}
     >
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
-        <div
-          className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/60"
-          aria-hidden
-        >
-          {busy ? (
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          ) : (
-            icon
-          )}
-        </div>
+        {isLoading ? (
+          <Skeleton className="size-14 shrink-0 rounded-xl" />
+        ) : (
+          <div
+            className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/60"
+            aria-hidden
+          >
+            {busy ? (
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            ) : (
+              icon
+            )}
+          </div>
+        )}
         <div className="min-w-0 flex-1 space-y-1">
-          <CardTitle className="text-xl leading-tight">{title}</CardTitle>
-          <CardDescription className="text-pretty leading-snug">
-            {description}
-          </CardDescription>
+          {isLoading ? (
+            <>
+              <Skeleton className="h-5 w-24 rounded" />
+              <Skeleton className="h-3.5 w-40 rounded" />
+            </>
+          ) : (
+            <>
+              <CardTitle className="text-xl leading-tight">{title}</CardTitle>
+              <CardDescription className="text-pretty leading-snug">
+                {description}
+              </CardDescription>
+            </>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <p className="text-xs font-medium text-muted-foreground">
-          Tap to run
-        </p>
+        {isLoading ? (
+          <Skeleton className="h-3 w-16 rounded" />
+        ) : (
+          <p className="text-xs font-medium text-muted-foreground">
+            Tap to run
+          </p>
+        )}
       </CardContent>
     </Card>
   );

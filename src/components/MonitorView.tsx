@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { WsStreamImg } from "@/components/WsStreamImg";
 import {
   SegmentedControl,
@@ -101,27 +102,20 @@ function StreamTile({
   url: string;
   className?: string;
 }) {
-  const [imgKey, setImgKey] = useState(0);
-
-  const reconnect = useCallback(() => {
-    setImgKey((k) => k + 1);
-  }, []);
+  const [loaded, setLoaded] = useState(false);
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <span className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <div
-        className="touch-manipulation relative cursor-pointer overflow-hidden rounded-xl border border-border bg-black"
-        title="Tap to reconnect"
-        onClick={reconnect}
-      >
+      <div className="relative overflow-hidden rounded-xl border border-border bg-black">
+        {!loaded && <Skeleton className="absolute inset-0 z-10 rounded-none" />}
         <WsStreamImg
-          key={imgKey}
           url={url}
           alt={`${label} live stream`}
-          className="mx-auto block w-full"
+          className="block aspect-video w-full"
+          onLoad={() => setLoaded(true)}
         />
       </div>
     </div>
