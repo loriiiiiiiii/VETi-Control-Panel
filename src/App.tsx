@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Eye, House, Play } from "lucide-react";
+import { ClipboardList, Eye, House, Play } from "lucide-react";
 import { BackendSelector } from "@/components/BackendSelector";
 import { HomeView } from "@/components/HomeView";
 import { MonitorView } from "@/components/MonitorView";
 import { PowerButtons } from "@/components/PowerButtons";
+import { ResultsView } from "@/components/ResultsView";
 import { ScriptRunner } from "@/components/ScriptRunner";
 import {
   TabBarRoot,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 const TAB_ITEMS: TabBarItem[] = [
   { id: "home", label: "Home", icon: House },
   { id: "scripts", label: "Scripts", icon: Play },
+  { id: "results", label: "Results", icon: ClipboardList },
   { id: "monitor", label: "Monitor", icon: Eye },
 ];
 
@@ -67,6 +69,9 @@ function AppShell() {
           </TabBarContent>
           <TabBarContent value="scripts" className="flex-1 outline-none">
             <ScriptRunner />
+          </TabBarContent>
+          <TabBarContent value="results" className="flex flex-1 flex-col outline-none">
+            <ResultsView />
           </TabBarContent>
           <TabBarContent value="monitor" className="flex-1 outline-none">
             <MonitorView />
