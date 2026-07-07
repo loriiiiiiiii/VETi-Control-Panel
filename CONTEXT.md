@@ -30,7 +30,25 @@ A named HMD rendering mode (`default`, `blank`, `active_eye`, `earth`, `slo`, `o
 Live WebSocket binary (JPEG) feed from the pupil camera, rendered via `WsStreamImg`. The active eye is auto-selected from pupil metrics. Metrics auto-refresh every 3 seconds via `setInterval`.
 
 **Tab**
-A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Three tabs: Home (actions + display scene buttons), Scripts (`ScriptRunner`), Monitor (cameras + pupil, switchable via segmented control).
+A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Four tabs: Home (actions + display scene buttons), Scripts (`ScriptRunner`), Results (`ResultsView` — session browser), Monitor (cameras + pupil, switchable via segmented control).
+
+**Session**
+A diagnostic acquisition run on the VETi device, identified by a monotonic integer. Contains one or more sub-sessions. Only sessions with at least one RESULT frame are exposed. Retrieved via `GET /api/v1/sessions`. Marked `current` while it is the active acquisition.
+
+**Sub-session**
+A grouping within a session, keyed by `(sub_session, side)`. Each carries its own SLO/OCT frame counts.
+
+**Side**
+The eye a frame or sub-session belongs to: `OD` (right), `OS` (left), or `OU` (both).
+
+**Modality**
+The imaging source of a frame: `SLO` or `OCT`. (The API may report `unknown`.)
+
+**Frame**
+A single captured image plus metadata, identified by a stable web-layer id. Only RESULT-kind frames are exposed in v1. Rendered as a compressed WebP thumbnail in the gallery and as a PNG in the full viewer, both via `GET /api/v1/frames/{id}/image`.
+
+**Eviction (Gone)**
+Sessions and frames are ephemeral — they live only while their in-memory image data survives. An evicted frame's image returns `410 Gone`. When the UI hits an eviction it tells the user the device state changed and returns them to a freshly-loaded session list.
 
 ## Invariants
 
