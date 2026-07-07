@@ -1,5 +1,9 @@
 import { PrimaryPadActions } from "@/components/PrimaryPadActions";
 
 export function HomeView() {
-  return <PrimaryPadActions />;
+  return (
+    <div className="flex flex-1 flex-col justify-center">
+      <PrimaryPadActions />
+    </div>
+  );
 }

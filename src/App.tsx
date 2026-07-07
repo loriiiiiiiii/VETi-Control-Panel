@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router";
 import { ClipboardList, Eye, House, Play } from "lucide-react";
 import { BackendSelector } from "@/components/BackendSelector";
 import { HomeView } from "@/components/HomeView";
@@ -9,11 +9,11 @@ import { ScriptRunner } from "@/components/ScriptRunner";
 import {
   TabBarRoot,
   TabBarList,
-  TabBarContent,
   type TabBarItem,
 } from "@/components/ui/tab-bar";
 import { Toaster } from "@/components/ui/sonner";
 import { BackendProvider } from "@/context/BackendContext";
+import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import { cn } from "@/lib/utils";
 
 const TAB_ITEMS: TabBarItem[] = [
@@ -26,7 +26,15 @@ const TAB_ITEMS: TabBarItem[] = [
 export function App() {
   return (
     <BackendProvider>
-      <AppShell />
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<HomeView />} />
+          <Route path="scripts" element={<ScriptRunner />} />
+          <Route path="results/*" element={<ResultsView />} />
+          <Route path="monitor" element={<MonitorView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
       <Toaster
         richColors
         closeButton
@@ -37,11 +45,23 @@ export function App() {
   );
 }
 
-function AppShell() {
-  const [activeTab, setActiveTab] = useState("home");
+function AppLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  useAndroidBackButton();
+
+  const firstSegment = location.pathname.split("/").filter(Boolean)[0];
+  const activeTab = firstSegment ?? "home";
 
   return (
-    <TabBarRoot value={activeTab} onValueChange={setActiveTab}>
+    <TabBarRoot
+      value={activeTab}
+      onValueChange={(id) => {
+        const path = id === "home" ? "/" : `/${id}`;
+        const replace = id === "home" || activeTab !== "home";
+        navigate(path, { replace });
+      }}
+    >
       <div className="flex min-h-dvh flex-col bg-background">
         <header
           className={cn(
@@ -64,21 +84,9 @@ function AppShell() {
         </header>
 
         <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-[10%] py-6 sm:px-10 sm:py-8">
-          <TabBarContent value="home" className="flex flex-1 flex-col justify-center outline-none">
-            <HomeView />
-          </TabBarContent>
-          <TabBarContent value="scripts" className="flex-1 outline-none">
-            <ScriptRunner />
-          </TabBarContent>
-          <TabBarContent value="results" className="flex flex-1 flex-col outline-none">
-            <ResultsView />
-          </TabBarContent>
-          <TabBarContent value="monitor" className="flex-1 outline-none">
-            <MonitorView />
-          </TabBarContent>
+          <Outlet />
         </main>
 
-        {/* Spacer matching the fixed tab bar height so content scrolls clear of it */}
         <div className="h-[calc(4rem+var(--inset-bottom))]" aria-hidden />
         <TabBarList items={TAB_ITEMS} />
       </div>
