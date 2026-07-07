@@ -54,6 +54,57 @@ export type ApiResult<T = Record<string, unknown>> = {
   error?: string;
 } & T;
 
+export type Side = "OD" | "OS" | "OU";
+export type Modality = "slo" | "oct";
+
+export type FrameCounts = {
+  slo: number;
+  oct: number;
+};
+
+export type SessionSummary = {
+  session: number;
+  current: boolean;
+  subsession_count: number;
+  sides: Side[];
+  frame_counts: FrameCounts;
+};
+
+export type SubsessionInfo = {
+  sub_session: number;
+  side: Side;
+  frame_counts: FrameCounts;
+};
+
+export type SessionDetail = {
+  session: number;
+  current: boolean;
+  subsessions: SubsessionInfo[];
+};
+
+export type Frame = {
+  id: number;
+  session: number;
+  sub_session: number;
+  side: Side;
+  modality: Modality | "unknown";
+  kind: "result";
+  seq_cur: number;
+  seq_total: number;
+  /** ISO 8601 acquisition timestamp, or null if unavailable. */
+  timestamp: string | null;
+  width: number;
+  height: number;
+  channels: number;
+  depth: 0 | 8 | 16;
+  aspect: number;
+  score?: number;
+  pos_mm?: number;
+  description?: string;
+  /** Relative URL to fetch the frame image, e.g. /api/v1/frames/42/image */
+  image_url: string;
+};
+
 export type RunScriptResponse = ApiResult<{ script?: string }>;
 export type WakeupResponse = ApiResult;
 export type SleepResponse = ApiResult;
@@ -65,7 +116,12 @@ export type DisplaySourceResponse = ApiResult<{ scene?: DisplayScene }>;
  */
 export function describeError(err: unknown): string {
   if (err instanceof AxiosError) {
-    const data = err.response?.data as { error?: string } | undefined;
+    // Legacy endpoints return { error }; the v1 Sessions API returns
+    // { error_type, error_message }. Surface whichever is present.
+    const data = err.response?.data as
+      | { error?: string; error_message?: string }
+      | undefined;
+    if (data?.error_message) return data.error_message;
     if (data?.error) return data.error;
     if (err.response?.status) {
       return `HTTP ${err.response.status} ${err.response.statusText ?? ""}`.trim();
@@ -75,6 +131,14 @@ export function describeError(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+/**
+ * True when an error is an HTTP 410 Gone — the v1 Sessions API returns this
+ * once a frame's image data has been evicted from the device's memory.
+ */
+export function isGoneError(err: unknown): boolean {
+  return err instanceof AxiosError && err.response?.status === 410;
 }
 
 /**
@@ -111,6 +175,34 @@ export function createApiClient(baseURL: string) {
 
     getPupilInfo: (): Promise<PupilInfo> =>
       http.get<PupilInfo>("/api/pupil/info").then((r) => r.data),
+
+    /** Sessions that contain at least one RESULT frame, newest first. */
+    listSessions: (): Promise<SessionSummary[]> =>
+      http
+        .get<{ sessions: SessionSummary[] }>("/api/v1/sessions")
+        .then((r) => r.data.sessions),
+
+    /**
+     * RESULT frames for a session. `modality` is sent only when set, so the
+     * request stays minimal and forward-compatible if the API options change.
+     */
+    listSessionFrames: (
+      session: number,
+      opts?: { modality?: Modality },
+    ): Promise<Frame[]> =>
+      http
+        .get<{ session: number; frames: Frame[] }>(
+          `/api/v1/sessions/${session}/frames`,
+          opts?.modality ? { params: { modality: opts.modality } } : undefined,
+        )
+        .then((r) => r.data.frames),
+
+    /** Absolute URL for a compressed WebP preview thumbnail of a frame. */
+    frameThumbUrl: (frame: Frame): string =>
+      `${baseURL}${frame.image_url}?format=webp`,
+
+    /** Absolute URL for the full-resolution frame image (server-default PNG). */
+    frameImageUrl: (frame: Frame): string => `${baseURL}${frame.image_url}`,
 
     /**
      * WebSocket live stream URLs for this backend.
