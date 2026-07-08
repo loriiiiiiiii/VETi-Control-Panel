@@ -1,6 +1,5 @@
 import { Route, Routes, useNavigate, useParams } from "react-router";
-import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { SessionGallery } from "@/components/SessionGallery";
 import { SessionList } from "@/components/SessionList";
 import { useSessions } from "@/hooks/useSessions";
 
@@ -28,25 +27,9 @@ function SessionListPage() {
   );
 }
 
-/** Placeholder for the Results plan Stage 3 (SessionGallery). */
 function SessionDetailPage() {
   const { session } = useParams<{ session: string }>();
-  const navigate = useNavigate();
+  const sessionNum = Number(session);
 
-  return (
-    <div className="flex flex-col gap-4">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate(-1)}
-        className="self-start"
-      >
-        <ChevronLeft />
-        Sessions
-      </Button>
-      <div className="py-8 text-center text-base text-muted-foreground">
-        Session {session} gallery coming soon.
-      </div>
-    </div>
-  );
+  return <SessionGallery session={sessionNum} />;
 }

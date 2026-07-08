@@ -83,7 +83,9 @@ function AppLayout() {
           </div>
         </header>
 
-        <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-[10%] py-6 sm:px-10 sm:py-8">
+        {/* 54rem = header's max-w-4xl (56rem) minus its px-4, so the capped
+            main content aligns exactly with the header content edges. */}
+        <main className="mx-auto flex w-[min(90vw,54rem)] flex-1 flex-col py-6 sm:py-8">
           <Outlet />
         </main>
 
