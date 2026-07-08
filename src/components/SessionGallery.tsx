@@ -19,6 +19,7 @@ import {
   ImageGallery,
   type ImageGalleryProps,
 } from "@/components/shadix-ui/components/image-gallery";
+import { FrameViewer } from "@/components/FrameViewer";
 import { useBackend } from "@/context/BackendContext";
 import { useSessionFrames } from "@/hooks/useSessionFrames";
 import type { Modality } from "@/lib/api";
@@ -46,6 +47,7 @@ export function SessionGallery({ session, current }: SessionGalleryProps) {
   const navigate = useNavigate();
   const { client } = useBackend();
   const [modalityFilter, setModalityFilter] = useState("all");
+  const [viewerIndex, setViewerIndex] = useState(-1);
 
   const modality =
     modalityFilter === "all" ? undefined : (modalityFilter as Modality);
@@ -154,11 +156,16 @@ export function SessionGallery({ session, current }: SessionGalleryProps) {
           images={images}
           columns={GALLERY_COLUMNS}
           gap={GALLERY_GAP}
-          onImageClick={(_image, _index) => {
-            // Stage 4 will open the YARL viewer at this index.
-          }}
+          onImageClick={(_image, index) => setViewerIndex(index)}
         />
       )}
+
+      <FrameViewer
+        frames={frames}
+        index={viewerIndex}
+        onClose={() => setViewerIndex(-1)}
+        onIndexChange={setViewerIndex}
+      />
     </div>
   );
 }
