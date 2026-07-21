@@ -211,10 +211,10 @@ export function createApiClient(baseURL: string) {
     streamUrls: (() => {
       const wsBase = baseURL.replace(/^http/, "ws");
       return {
-        slo: `${wsBase}/api/stream/slo`,
-        oct: `${wsBase}/api/stream/oct`,
-        pupil_left: `${wsBase}/api/stream/pupil_left`,
-        pupil_right: `${wsBase}/api/stream/pupil_right`,
+        slo: `${wsBase}/api/v1/stream/slo`,
+        oct: `${wsBase}/api/v1/stream/oct`,
+        pupil_left: `${wsBase}/api/v1/stream/pupil_left`,
+        pupil_right: `${wsBase}/api/v1/stream/pupil_right`,
       };
     })(),
   };
