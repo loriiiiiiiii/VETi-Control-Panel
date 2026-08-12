@@ -14,7 +14,9 @@ export type DisplayScene =
   | "earth"
   | "slo"
   | "oct"
-  | "file";
+  | "file"
+  | "vision_test"
+  | "mujoco";
 
 export const DISPLAY_SCENES: DisplayScene[] = [
   "default",
@@ -24,6 +26,8 @@ export const DISPLAY_SCENES: DisplayScene[] = [
   "slo",
   "oct",
   "file",
+  "vision_test",
+  "mujoco",
 ];
 
 export type PupilInfo = {
@@ -62,10 +66,51 @@ export type FrameCounts = {
   oct: number;
 };
 
-export type SessionSummary = {
+/** Who launched a run — the X-VETi-Source audit tag recorded on the session. */
+export type RunSource = "voice" | "mcp" | "hotkey" | "http" | "internal";
+
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "timed_out";
+
+export type RunErrorType =
+  | "none"
+  | "script_exception"
+  | "script_not_found"
+  | "killed"
+  | "timeout"
+  | "system_error"
+  | "client_timeout";
+
+/**
+ * One script run: the device's run record (status, script, timings) merged
+ * with live frame counts from the reels. A session is listed from the moment
+ * its script launches — before it has frames, and after they are evicted.
+ */
+export type Session = {
   session: number;
+  script: string;
+  script_path: string;
+  source: RunSource;
+  request_id: string;
+  status: RunStatus;
+  error_type: RunErrorType;
+  /** Truncated exception message; empty on success. */
+  error_message: string;
+  /** UTC ISO 8601 wall clock at launch. */
+  started_at: string;
+  /** UTC ISO 8601 wall clock at terminal state; null while active. */
+  ended_at: string | null;
+  duration_ms: number;
+  /** True while the run is queued/running. */
   current: boolean;
+  /** Sub-sessions with frames still in memory. */
   subsession_count: number;
+  /** Eye sides present among this session's in-memory frames. */
   sides: Side[];
   frame_counts: FrameCounts;
 };
@@ -76,11 +121,18 @@ export type SubsessionInfo = {
   frame_counts: FrameCounts;
 };
 
-export type SessionDetail = {
-  session: number;
-  current: boolean;
+export type SessionDetail = Session & {
   subsessions: SubsessionInfo[];
 };
+
+/**
+ * True when the session still has frames in device memory. The device lists
+ * every run it has ever registered, including runs that produced no frames
+ * and runs whose frames have since been evicted.
+ */
+export function hasFrames(session: Session): boolean {
+  return session.frame_counts.slo + session.frame_counts.oct > 0;
+}
 
 export type Frame = {
   id: number;
@@ -105,7 +157,31 @@ export type Frame = {
   image_url: string;
 };
 
-export type RunScriptResponse = ApiResult<{ script?: string }>;
+/**
+ * 202 body of a script launch. The run is only *queued* at this point; its
+ * progress is observed through the session identified by `session`.
+ */
+export type RunAccepted = {
+  success: true;
+  session: number;
+  /** Resolved script filename. */
+  script: string;
+  /** Relative URL of the run's session resource, e.g. /api/v1/sessions/42. */
+  status_url: string;
+  request_id: string;
+};
+
+/** 409 body of a launch rejected because another run is already in flight. */
+export type BusyError = {
+  success: false;
+  error_type: "busy";
+  error_message: string;
+  /** The script that was rejected. */
+  script?: string;
+  /** The run already executing, or null if it ended in the meantime. */
+  session: Session | null;
+};
+
 export type WakeupResponse = ApiResult;
 export type SleepResponse = ApiResult;
 export type DisplaySourceResponse = ApiResult<{ scene?: DisplayScene }>;
@@ -142,6 +218,23 @@ export function isGoneError(err: unknown): boolean {
 }
 
 /**
+ * The 409 payload when a launch is rejected because the device is already
+ * running a script, or null for any other failure. The device runs one script
+ * at a time and answers rejections with HTTP 409, which axios throws.
+ */
+export function asBusyError(err: unknown): BusyError | null {
+  if (!(err instanceof AxiosError) || err.response?.status !== 409) return null;
+  const data = err.response.data as Partial<BusyError> | undefined;
+  return {
+    success: false,
+    error_type: "busy",
+    error_message: data?.error_message ?? "another script is already running",
+    script: data?.script,
+    session: data?.session ?? null,
+  };
+}
+
+/**
  * Creates a backend-bound API client. Call once per active backend selection;
  * each returned object owns its own axios instance so switching backends is
  * instantaneous and callers never depend on implicit global state.
@@ -157,8 +250,14 @@ export function createApiClient(baseURL: string) {
     getScripts: (): Promise<ScriptInfo[]> =>
       http.get<ScriptInfo[]>("/api/scripts").then((r) => r.data),
 
-    runScript: (script: string): Promise<RunScriptResponse> =>
-      http.post<RunScriptResponse>("/api/run", { script }).then((r) => r.data),
+    /**
+     * Launch a builtin script. Resolves with the opened session as soon as the
+     * device accepts the launch (202) — the run itself outlives this call.
+     * Rejects with 404 when the script is unknown and 409 when busy; use
+     * `asBusyError` to read the run that blocked it.
+     */
+    runScript: (script: string): Promise<RunAccepted> =>
+      http.post<RunAccepted>("/api/run", { script }).then((r) => r.data),
 
     wakeup: (blocking = true): Promise<WakeupResponse> =>
       http
@@ -176,10 +275,13 @@ export function createApiClient(baseURL: string) {
     getPupilInfo: (): Promise<PupilInfo> =>
       http.get<PupilInfo>("/api/pupil/info").then((r) => r.data),
 
-    /** Sessions that contain at least one RESULT frame, newest first. */
-    listSessions: (): Promise<SessionSummary[]> =>
+    /**
+     * Every session the device has registered, newest first — including runs
+     * with no frames. Callers that browse imagery filter with `hasFrames`.
+     */
+    listSessions: (): Promise<Session[]> =>
       http
-        .get<{ sessions: SessionSummary[] }>("/api/v1/sessions")
+        .get<{ sessions: Session[] }>("/api/v1/sessions")
         .then((r) => r.data.sessions),
 
     /**

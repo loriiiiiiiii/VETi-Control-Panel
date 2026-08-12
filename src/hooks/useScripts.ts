@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useBackend } from "@/context/BackendContext";
-import { describeError, type ScriptInfo } from "@/lib/api";
+import { asBusyError, describeError, type ScriptInfo } from "@/lib/api";
 
 export type UseScriptsResult = {
   scripts: ScriptInfo[];
@@ -58,15 +58,19 @@ export function useScripts(): UseScriptsResult {
       setRunningFile(script.filename);
       try {
         const res = await client.runScript(script.name || script.filename);
-        if (res.success) {
-          toast.success(`Started: ${res.script ?? label}`);
-        } else if (res.error === "busy") {
-          toast.error(`Busy: ${label}`);
-        } else {
-          toast.error(res.error ?? `Failed: ${label}`);
-        }
+        toast.success(`Started: ${res.script || label}`);
       } catch (err) {
-        toast.error(describeError(err));
+        const busy = asBusyError(err);
+        if (busy) {
+          const running = busy.session?.script;
+          toast.error(
+            running
+              ? `Busy: ${running} is still running`
+              : "Busy: another script is already running",
+          );
+        } else {
+          toast.error(describeError(err));
+        }
       } finally {
         setRunningFile(null);
       }

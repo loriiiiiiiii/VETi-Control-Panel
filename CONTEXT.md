@@ -18,13 +18,13 @@ The backend currently selected for API calls. Exposed by `BackendContext` as `ac
 A set of backend-bound API functions created by `createApiClient(baseURL)`. Each active backend gets exactly one client. Callers must obtain the client from `useBackend()` — never import a shared axios instance. This makes backend dependency explicit at every call site.
 
 **Script**
-A Python script registered on the VETi backend. Has a `filename`, display `name`, `category`, and optional `hotkey`. Retrieved via `GET /api/scripts`, run via `POST /api/run`.
+A Python script registered on the VETi backend. Has a `filename`, display `name`, `category`, and optional `hotkey`. Retrieved via `GET /api/scripts`, run via `POST /api/run`. Launching is async request-reply: the device answers `202` with the opened session, or `409 busy` when a run is already in flight (one script at a time).
 
 **Quick script**
 One of the two primary-pad actions (Scan, Vision Test) resolved from the full script list by name/hotkey heuristics in `resolveQuickScripts`. Shown as large action cards on the home screen.
 
 **Display scene**
-A named HMD rendering mode (`default`, `blank`, `active_eye`, `earth`, `slo`, `oct`, `file`). Set via `POST /api/display/source`. Managed in `DisplaySource`.
+A named HMD rendering mode (`default`, `blank`, `active_eye`, `earth`, `slo`, `oct`, `file`, `vision_test`, `mujoco`). Set via `POST /api/display/source`. Managed in `DisplaySource`.
 
 **Pupil stream**
 Live WebSocket binary (JPEG) feed from the pupil camera, rendered via `WsStreamImg`. The active eye is auto-selected from pupil metrics. Metrics auto-refresh every 3 seconds via `setInterval`.
@@ -33,7 +33,10 @@ Live WebSocket binary (JPEG) feed from the pupil camera, rendered via `WsStreamI
 A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Four tabs: Home (actions + display scene buttons), Scripts (`ScriptRunner`), Results (`ResultsView` — session browser), Monitor (cameras + pupil, switchable via segmented control).
 
 **Session**
-A diagnostic acquisition run on the VETi device, identified by a monotonic integer. Contains one or more sub-sessions. Only sessions with at least one RESULT frame are exposed. Retrieved via `GET /api/v1/sessions`. Marked `current` while it is the active acquisition.
+One script run on the VETi device, identified by a monotonic integer. Opened when a script launches — before it has produced any frame — and carries the run record (`status`, `script`, `source`, timings, error) plus live frame counts for its sub-sessions. Retrieved via `GET /api/v1/sessions`. Marked `current` while queued or running.
+
+**Session with frames**
+A session whose `frame_counts` are non-zero (`hasFrames`). The device lists every registered session, including runs that produced no frames and runs whose frames were evicted; the Results tab shows only sessions with frames, plus the `current` run while it acquires its first frames.
 
 **Sub-session**
 A grouping within a session, keyed by `(sub_session, side)`. Each carries its own SLO/OCT frame counts.
@@ -48,7 +51,7 @@ The imaging source of a frame: `SLO` or `OCT`. (The API may report `unknown`.)
 A single captured image plus metadata, identified by a stable web-layer id. Only RESULT-kind frames are exposed in v1. Rendered as a compressed WebP thumbnail in the gallery and as a PNG in the full viewer, both via `GET /api/v1/frames/{id}/image`.
 
 **Eviction (Gone)**
-Sessions and frames are ephemeral — they live only while their in-memory image data survives. An evicted frame's image returns `410 Gone`. When the UI hits an eviction it tells the user the device state changed and returns them to a freshly-loaded session list.
+Frames are ephemeral — they live only while their in-memory image data survives; session records outlive them for the device's process lifetime. An evicted frame's image returns `410 Gone`, and its session drops back to zero frame counts. When the UI hits an eviction it tells the user the device state changed and returns them to a freshly-loaded session list.
 
 ## Invariants
 

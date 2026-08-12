@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useBackend } from "@/context/BackendContext";
-import { describeError, type SessionSummary } from "@/lib/api";
+import { describeError, type Session } from "@/lib/api";
 
 export type UseSessionsResult = {
-  sessions: SessionSummary[];
+  sessions: Session[];
   loading: boolean;
   /** Non-null when the session list failed to load. */
   error: string | null;
@@ -18,7 +18,7 @@ export type UseSessionsResult = {
  */
 export function useSessions(): UseSessionsResult {
   const { activeUrl, client } = useBackend();
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);

@@ -11,10 +11,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { SessionSummary } from "@/lib/api";
+import type { Session } from "@/lib/api";
 
 type SessionListProps = {
-  sessions: SessionSummary[];
+  sessions: Session[];
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
@@ -105,7 +105,7 @@ function SessionRow({
   session,
   onSelect,
 }: {
-  session: SessionSummary;
+  session: Session;
   onSelect: (session: number) => void;
 }) {
   return (
