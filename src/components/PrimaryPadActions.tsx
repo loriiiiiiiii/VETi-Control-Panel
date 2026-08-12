@@ -1,5 +1,6 @@
 import { Eye, Loader2, ScanLine } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   Card,
@@ -16,18 +17,22 @@ import { cn } from "@/lib/utils";
 
 export function PrimaryPadActions() {
   const { scripts, loading, error, runningFile, run } = useScripts();
+  const navigate = useNavigate();
   const showSkeleton = loading || !!error;
   const { scan, visionTest } = useMemo(
     () => resolveQuickScripts(scripts),
     [scripts],
   );
 
-  const runNamed = (displayName: string, script: ScriptInfo | null) => {
-    if (!script) {
-      toast.error(`${displayName} is not available on this device.`);
-      return;
-    }
-    void run(script, displayName);
+  const notAvailable = (displayName: string) => {
+    toast.error(`${displayName} is not available on this device.`);
+  };
+
+  // Scan is tracked: on acceptance, go straight to the new session's page
+  // (its live view is the feedback, so the "Started" toast is suppressed).
+  const startScan = async (script: ScriptInfo) => {
+    const accepted = await run(script, { displayName: "Scan", notify: false });
+    if (accepted) navigate(`/results/${accepted.session}`);
   };
 
   return (
@@ -39,7 +44,7 @@ export function PrimaryPadActions() {
         loading={showSkeleton}
         disabled={showSkeleton}
         busy={runningFile === scan?.filename}
-        onActivate={() => runNamed("Scan", scan)}
+        onActivate={() => (scan ? void startScan(scan) : notAvailable("Scan"))}
       />
       <ActionCard
         title="Vision Test"
@@ -48,7 +53,11 @@ export function PrimaryPadActions() {
         loading={showSkeleton}
         disabled={showSkeleton}
         busy={runningFile === visionTest?.filename}
-        onActivate={() => runNamed("Vision Test", visionTest)}
+        onActivate={() =>
+          visionTest
+            ? void run(visionTest, { displayName: "Vision Test" })
+            : notAvailable("Vision Test")
+        }
       />
     </div>
   );

@@ -218,6 +218,14 @@ export function isGoneError(err: unknown): boolean {
 }
 
 /**
+ * True when an error is an HTTP 404 — for the v1 Sessions API this means the
+ * session number was never registered on this device (e.g. it restarted).
+ */
+export function isNotFoundError(err: unknown): boolean {
+  return err instanceof AxiosError && err.response?.status === 404;
+}
+
+/**
  * The 409 payload when a launch is rejected because the device is already
  * running a script, or null for any other failure. The device runs one script
  * at a time and answers rejections with HTTP 409, which axios throws.
@@ -283,6 +291,16 @@ export function createApiClient(baseURL: string) {
       http
         .get<{ sessions: Session[] }>("/api/v1/sessions")
         .then((r) => r.data.sessions),
+
+    /**
+     * Run record + subsession breakdown for one session. The session page
+     * polls this while the run is `current`. 404 when the session number was
+     * never registered on this device.
+     */
+    getSession: (session: number): Promise<SessionDetail> =>
+      http
+        .get<SessionDetail>(`/api/v1/sessions/${session}`)
+        .then((r) => r.data),
 
     /**
      * RESULT frames for a session. `modality` is sent only when set, so the

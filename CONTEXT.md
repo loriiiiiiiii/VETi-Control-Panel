@@ -32,6 +32,9 @@ Live WebSocket binary (JPEG) feed from the pupil camera, rendered via `WsStreamI
 **Tab**
 A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Four tabs: Home (actions + display scene buttons), Scripts (`ScriptRunner`), Results (`ResultsView` — session browser), Monitor (cameras + pupil, switchable via segmented control).
 
+**Session page**
+The single page for one session (`/results/:session`), rendering it across its whole lifecycle: while the session is current it shows the live run state; once the run reaches a terminal status it shows the frame gallery plus the run outcome. There is no separate "running" page — launching a scan navigates here.
+
 **Session**
 One script run on the VETi device, identified by a monotonic integer. Opened when a script launches — before it has produced any frame — and carries the run record (`status`, `script`, `source`, timings, error) plus live frame counts for its sub-sessions. Retrieved via `GET /api/v1/sessions`. Marked `current` while queued or running.
 

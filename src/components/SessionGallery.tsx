@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { ChevronLeft, ImageOff, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -20,9 +19,10 @@ import {
   type ImageGalleryProps,
 } from "@/components/shadix-ui/components/image-gallery";
 import { FrameViewer } from "@/components/FrameViewer";
+import { RunStatusBadge } from "@/components/RunStatusBadge";
 import { useBackend } from "@/context/BackendContext";
 import { useSessionFrames } from "@/hooks/useSessionFrames";
-import type { Modality } from "@/lib/api";
+import type { Modality, Session } from "@/lib/api";
 
 const MODALITY_SEGMENTS: Segment[] = [
   { id: "all", label: "All" },
@@ -38,12 +38,20 @@ const GALLERY_COLUMNS: ImageGalleryProps["columns"] = {
 
 const GALLERY_GAP = 8;
 
-type SessionGalleryProps = {
-  session: number;
-  current?: boolean;
+/** Banner headline per non-success terminal status. */
+const FAILURE_TEXT: Partial<Record<Session["status"], string>> = {
+  failed: "This run failed",
+  cancelled: "This run was cancelled",
+  timed_out: "This run timed out",
 };
 
-export function SessionGallery({ session, current }: SessionGalleryProps) {
+type SessionGalleryProps = {
+  session: number;
+  /** The finished run's record, for the outcome badge and error banner. */
+  run: Session;
+};
+
+export function SessionGallery({ session, run }: SessionGalleryProps) {
   const navigate = useNavigate();
   const { client } = useBackend();
   const [modalityFilter, setModalityFilter] = useState("all");
@@ -92,14 +100,7 @@ export function SessionGallery({ session, current }: SessionGalleryProps) {
           <span className="text-base font-medium text-foreground">
             Session {session}
           </span>
-          {current && (
-            <Badge
-              className="border-ok/40 bg-ok/15 text-ok"
-              variant="outline"
-            >
-              Current
-            </Badge>
-          )}
+          <RunStatusBadge status={run.status} />
         </div>
         <Button
           variant="ghost"
@@ -111,6 +112,13 @@ export function SessionGallery({ session, current }: SessionGalleryProps) {
           <RefreshCw />
         </Button>
       </div>
+
+      {run.status !== "succeeded" && (
+        <div className="rounded-xl border border-err/40 bg-err/10 px-4 py-3 text-base text-err">
+          {FAILURE_TEXT[run.status] ?? "This run did not succeed"}
+          {run.error_message ? `: ${run.error_message}` : "."}
+        </div>
+      )}
 
       <SegmentedControl
         segments={MODALITY_SEGMENTS}

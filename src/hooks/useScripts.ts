@@ -1,20 +1,37 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useBackend } from "@/context/BackendContext";
-import { asBusyError, describeError, type ScriptInfo } from "@/lib/api";
+import {
+  asBusyError,
+  describeError,
+  type RunAccepted,
+  type ScriptInfo,
+} from "@/lib/api";
+
+export type RunOptions = {
+  /** Overrides the toast label; falls back to `script.name` then `.filename`. */
+  displayName?: string;
+  /**
+   * Suppress the success toast — for callers that navigate to the session
+   * page on acceptance, where the page itself is the feedback. Failure
+   * toasts always show.
+   */
+  notify?: boolean;
+};
 
 export type UseScriptsResult = {
   scripts: ScriptInfo[];
   loading: boolean;
   /** Non-null when the script list failed to load. */
   error: string | null;
-  /** Filename of the script currently running, or null. */
+  /** Filename of the script currently being launched, or null. */
   runningFile: string | null;
   /**
-   * Run a script. `displayName` overrides the toast label; falls back to
-   * `script.name` then `script.filename`.
+   * Launch a script. Resolves with the accepted launch (session number,
+   * status_url) or null when the launch was rejected — rejections have
+   * already been surfaced as toasts.
    */
-  run: (script: ScriptInfo, displayName?: string) => Promise<void>;
+  run: (script: ScriptInfo, opts?: RunOptions) => Promise<RunAccepted | null>;
 };
 
 /**
@@ -53,12 +70,18 @@ export function useScripts(): UseScriptsResult {
   }, [activeUrl, client]);
 
   const run = useCallback(
-    async (script: ScriptInfo, displayName?: string): Promise<void> => {
-      const label = displayName ?? script.name ?? script.filename;
+    async (
+      script: ScriptInfo,
+      opts?: RunOptions,
+    ): Promise<RunAccepted | null> => {
+      const label = opts?.displayName ?? script.name ?? script.filename;
       setRunningFile(script.filename);
       try {
         const res = await client.runScript(script.name || script.filename);
-        toast.success(`Started: ${res.script || label}`);
+        if (opts?.notify !== false) {
+          toast.success(`Started: ${res.script || label}`);
+        }
+        return res;
       } catch (err) {
         const busy = asBusyError(err);
         if (busy) {
@@ -71,6 +94,7 @@ export function useScripts(): UseScriptsResult {
         } else {
           toast.error(describeError(err));
         }
+        return null;
       } finally {
         setRunningFile(null);
       }

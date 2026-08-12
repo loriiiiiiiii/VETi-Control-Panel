@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { WsStreamImg } from "@/components/WsStreamImg";
+import { StreamTile } from "@/components/StreamTile";
 import {
   SegmentedControl,
   type Segment,
@@ -90,35 +89,6 @@ function Flag({ label, on }: { label: string; on: boolean }) {
       />
       {label}
     </span>
-  );
-}
-
-function StreamTile({
-  label,
-  url,
-  className,
-}: {
-  label: string;
-  url: string;
-  className?: string;
-}) {
-  const [loaded, setLoaded] = useState(false);
-
-  return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <div className="relative overflow-hidden rounded-xl border border-border bg-black">
-        {!loaded && <Skeleton className="absolute inset-0 z-10 rounded-none" />}
-        <WsStreamImg
-          url={url}
-          alt={`${label} live stream`}
-          className="block aspect-video w-full"
-          onLoad={() => setLoaded(true)}
-        />
-      </div>
-    </div>
   );
 }
 
