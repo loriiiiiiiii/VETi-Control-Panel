@@ -59,6 +59,44 @@ npm run preview      # smoke-test the static bundle locally
 
 The static site is emitted to `dist/`. Serve it with any static-file server (nginx, `python -m http.server`, etc.) on the machine that runs the backend.
 
+## Docker (no source clone)
+
+Images are published to GHCR on every push to `main` and on `v*` tags:
+
+```text
+ghcr.io/loriiiiiiiii/veti-control-panel:latest
+```
+
+The container serves the static UI on port **80** inside the container. It does **not** need host port mapping — put it on the same Docker network as your Cloudflare tunnel and point the tunnel at `http://interaction-board:80`.
+
+### Compose snippet (server)
+
+```yaml
+services:
+  interaction-board:
+    image: ghcr.io/loriiiiiiiii/veti-control-panel:latest
+    restart: unless-stopped
+    networks:
+      - tunnel   # same network as cloudflared
+
+networks:
+  tunnel:
+    external: true
+```
+
+A fuller template lives at [`docker/compose.example.yml`](docker/compose.example.yml).
+
+### First-time package visibility
+
+GHCR packages default to private. After the first successful workflow run, open the package on GitHub → **Package settings** → set visibility to **Public** (or `docker login ghcr.io` with a PAT that can read packages).
+
+### Local image build (optional)
+
+```bash
+docker build -t veti-control-panel .
+docker run --rm -p 8080:80 veti-control-panel
+```
+
 ## Android APK (Capacitor)
 
 The Android project lives in `android/` and is committed to git. It was created with `npx cap add android` and includes the `capacitor-zeroconf` plugin for native mDNS discovery.
