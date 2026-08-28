@@ -30,7 +30,7 @@ A named HMD rendering mode (`default`, `blank`, `active_eye`, `earth`, `slo`, `o
 Live WebSocket binary (JPEG) feed from the pupil camera, rendered via `WsStreamImg`. The active eye is auto-selected from pupil metrics. Metrics auto-refresh every 3 seconds via `setInterval`.
 
 **Tab**
-A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Four tabs: Home (actions + display scene buttons), Scripts (`ScriptRunner`), Results (`ResultsView` — session browser), Monitor (cameras + pupil, switchable via segmented control).
+A full-screen view rendered inside `AppShell`, selected via the floating tab bar. Four tabs: Home (actions + display scene buttons), Results (`ResultsView` — session browser), Monitor (pupil + cameras, switchable via segmented control), Scripts (`ScriptRunner`).
 
 **Session page**
 The single page for one session (`/results/:session`), rendering it across its whole lifecycle: while the session is current it shows the live run state; once the run reaches a terminal status it shows the frame gallery plus the run outcome. There is no separate "running" page — launching a scan navigates here.

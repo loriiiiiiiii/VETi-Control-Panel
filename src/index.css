@@ -150,6 +150,25 @@
     background: color-mix(in oklab, var(--muted) 90%, transparent);
   }
 
+  /* Session live view: "look into the goggle" hint (GoggleLookHint.tsx).
+     4.5s loop: stand → bow to the goggle → hold looking in → straighten. */
+  @keyframes goggle-hint-bow {
+    0%, 10% { transform: rotate(0deg); }
+    32%, 64% { transform: rotate(42deg); }
+    86%, 100% { transform: rotate(0deg); }
+  }
+  .goggle-hint-person {
+    transform-box: view-box;
+    transform-origin: 58px 128px;
+    animation: goggle-hint-bow 4.5s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .goggle-hint-person {
+      animation: none;
+      transform: rotate(42deg);
+    }
+  }
+
   @media (prefers-color-scheme: dark) {
     :root {
       --background: oklch(0.145 0 0);

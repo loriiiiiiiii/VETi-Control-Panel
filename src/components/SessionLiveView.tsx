@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { GoggleLookHint } from "@/components/GoggleLookHint";
 import { RunStatusBadge } from "@/components/RunStatusBadge";
 import { StreamTile } from "@/components/StreamTile";
 import { useBackend } from "@/context/BackendContext";
@@ -51,6 +52,11 @@ export function SessionLiveView({ run, unreachable }: SessionLiveViewProps) {
         </div>
         {/* Spacer balancing the back button so the title stays centered. */}
         <div className="w-24 shrink-0" aria-hidden />
+      </div>
+
+      <div className="flex flex-col items-center gap-1 py-2 text-muted-foreground">
+        <GoggleLookHint className="h-32 w-auto" />
+        <span className="text-sm">Please look into the goggles</span>
       </div>
 
       <Card size="sm">

@@ -10,8 +10,8 @@ import { describeError, type PupilInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const SEGMENTS: Segment[] = [
-  { id: "imaging", label: "Imaging" },
   { id: "pupil", label: "Pupil" },
+  { id: "imaging", label: "Imaging" },
 ];
 
 const POLL_INTERVAL_MS = 3_000;
@@ -235,7 +235,7 @@ function PupilPanel() {
 }
 
 export function MonitorView() {
-  const [segment, setSegment] = useState("imaging");
+  const [segment, setSegment] = useState("pupil");
 
   return (
     <div className="flex flex-col gap-4">
@@ -245,8 +245,8 @@ export function MonitorView() {
         onSegmentChange={setSegment}
       />
 
-      {segment === "imaging" && <ImagingPanel />}
       {segment === "pupil" && <PupilPanel />}
+      {segment === "imaging" && <ImagingPanel />}
     </div>
   );
 }

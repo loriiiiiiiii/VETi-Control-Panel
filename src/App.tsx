@@ -18,9 +18,9 @@ import { cn } from "@/lib/utils";
 
 const TAB_ITEMS: TabBarItem[] = [
   { id: "home", label: "Home", icon: House },
-  { id: "scripts", label: "Scripts", icon: Play },
   { id: "results", label: "Results", icon: ClipboardList },
   { id: "monitor", label: "Monitor", icon: Eye },
+  { id: "scripts", label: "Scripts", icon: Play },
 ];
 
 export function App() {
@@ -29,9 +29,9 @@ export function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<HomeView />} />
-          <Route path="scripts" element={<ScriptRunner />} />
           <Route path="results/*" element={<ResultsView />} />
           <Route path="monitor" element={<MonitorView />} />
+          <Route path="scripts" element={<ScriptRunner />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
