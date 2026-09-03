@@ -1,9 +1,5 @@
 import { Capacitor } from "@capacitor/core";
 import {
-  ZeroConf,
-  type ZeroConfWatchResult,
-} from "capacitor-zeroconf";
-import {
   createContext,
   useCallback,
   useContext,
@@ -14,12 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { createApiClient, type ApiClient } from "@/lib/api";
-import {
-  vetiUrl,
-  VETI_PORT,
-  VETI_SERVICE_DOMAIN,
-  VETI_SERVICE_TYPE,
-} from "@/lib/veti";
+import { discovery, type DiscoveredInstance } from "@/lib/discovery";
+import { vetiUrl, VETI_PORT } from "@/lib/veti";
 
 const STORAGE_KEY = "interaction-board:active-backend";
 
@@ -38,10 +30,13 @@ export type Backend = {
   label: string;
 };
 
+/** Two-state presence model for a backend entry. */
+export type Presence = "confirmed" | "unknown";
+
 export type BackendContextValue = {
   /** True if running inside the Capacitor APK (Android), false in a browser. */
   isNative: boolean;
-  /** All currently known backends (discovered + active). */
+  /** All currently known backends (discovered + selected). */
   backends: Backend[];
   /** Currently selected backend, or null while we wait for one. */
   active: Backend | null;
@@ -54,10 +49,16 @@ export type BackendContextValue = {
   client: ApiClient;
   /** Switch to a different backend. Updates the bound API client + storage. */
   setActive: (b: Backend) => void;
-  /** True while actively listening for backends (Android only). */
+  /** True while a scan (startup or poll) is in progress. */
   scanning: boolean;
-  /** Restart mDNS discovery (Android) or reset to localhost (web). */
-  rescan: () => void;
+  /** Last scan error, or null. Cleared when a scan starts or succeeds. */
+  scanError: string | null;
+  /** Start continuous polling (dropdown open). */
+  startScan: () => void;
+  /** Stop continuous polling (dropdown closed). */
+  stopScan: () => void;
+  /** Presence state for a backend: "confirmed" if in the latest scan, else "unknown". */
+  presence: (b: Backend) => Presence;
 };
 
 const BackendContext = createContext<BackendContextValue | null>(null);
@@ -83,142 +84,188 @@ function saveStored(backend: Backend): void {
 export function BackendProvider({ children }: { children: ReactNode }) {
   const isNative = Capacitor.isNativePlatform();
 
-  const [backends, setBackends] = useState<Backend[]>([]);
+  // --- Core state ---
+
+  /** The selected (active) backend. Persisted to localStorage. */
   const [active, setActiveState] = useState<Backend | null>(null);
+  /** API client bound to the active backend. */
   const [client, setClient] = useState<ApiClient>(() => createApiClient(""));
+  /**
+   * The latest completed discovery scan results, or null if no scan has
+   * completed yet this session.
+   */
+  const [discovered, setDiscovered] = useState<Backend[] | null>(null);
+  /** True while any scan (startup or poll) is in flight. */
   const [scanning, setScanning] = useState(false);
+  /** Last scan error message, or null. */
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  // Refs for stable callbacks that don't re-create on every state change.
+  const activeRef = useRef<Backend | null>(null);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
   const autoSelectedRef = useRef(false);
+
+  // --- Derived state ---
+
+  /**
+   * Set of discovered URLs for O(1) presence lookups. Null means "no scan
+   * completed yet" — everything is unknown.
+   */
+  const discoveredUrls = useMemo(
+    () => (discovered ? new Set(discovered.map((b) => b.url)) : null),
+    [discovered],
+  );
+
+  /**
+   * The full backend list shown in the dropdown:
+   * latest discovered set ∪ {selected instance} (if not already in set).
+   */
+  const backends = useMemo(() => {
+    const base = discovered ?? [];
+    const a = activeRef.current;
+    if (a && !base.some((b) => b.url === a.url)) {
+      return [a, ...base];
+    }
+    return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discovered, active]);
+
+  /** Presence derivation: green (confirmed) or grey (unknown). */
+  const presence = useCallback(
+    (b: Backend): Presence => {
+      if (!discoveredUrls) return "unknown";
+      return discoveredUrls.has(b.url) ? "confirmed" : "unknown";
+    },
+    [discoveredUrls],
+  );
+
+  // --- Selection ---
 
   const setActive = useCallback((b: Backend) => {
     setActiveState(b);
     setClient(createApiClient(b.url));
     saveStored(b);
     autoSelectedRef.current = true;
-    // Make sure the chosen backend is in the list (e.g. manual IP)
-    setBackends((prev) =>
-      prev.some((x) => x.url === b.url) ? prev : [...prev, b],
-    );
   }, []);
 
-  /** Add a backend to the list and auto-select it if nothing is active yet. */
-  const addBackend = useCallback(
-    (b: Backend) => {
-      setBackends((prev) => {
-        if (prev.some((x) => x.url === b.url)) return prev;
-        return [...prev, b];
-      });
-      if (!autoSelectedRef.current) {
+  // --- Scanning ---
+
+  /** Generation counter to discard stale scan results. */
+  const scanGenRef = useRef(0);
+  /** Whether the poll loop should keep running. */
+  const pollingRef = useRef(false);
+
+  /**
+   * Apply the result of a single scanOnce() call: replace the discovered set,
+   * and auto-select the first instance if nothing is active yet.
+   */
+  const applyScanResult = useCallback(
+    (instances: DiscoveredInstance[]) => {
+      const backends: Backend[] = instances.map((i) => ({
+        url: i.url,
+        ip: i.ip,
+        label: i.label,
+      }));
+      setDiscovered(backends);
+
+      if (!autoSelectedRef.current && backends.length > 0) {
         autoSelectedRef.current = true;
-        setActiveState(b);
-        setClient(createApiClient(b.url));
-        saveStored(b);
+        const first = backends[0];
+        setActiveState(first);
+        setClient(createApiClient(first.url));
+        saveStored(first);
       }
     },
     [],
   );
 
-  const removeBackend = useCallback((url: string) => {
-    setBackends((prev) => prev.filter((b) => b.url !== url));
-  }, []);
-
   /**
-   * Android: open an mDNS watch for the VETi service. Returns a cleanup fn.
-   * Web: no-op. Returns a cleanup fn.
+   * Run one scan and apply the result. Returns silently on error (sets
+   * scanError state). Used by both startup and the poll loop.
    */
-  const startDiscovery = useCallback(async (): Promise<() => void> => {
-    if (!isNative) return () => {};
+  const runOneScan = useCallback(
+    async (gen: number): Promise<boolean> => {
+      try {
+        const instances = await discovery.scanOnce();
+        if (scanGenRef.current !== gen) return false;
+        applyScanResult(instances);
+        setScanError(null);
+        return true;
+      } catch (err) {
+        if (scanGenRef.current !== gen) return false;
+        console.error("[BackendContext] scanOnce failed", err);
+        setScanError(err instanceof Error ? err.message : String(err));
+        return false;
+      }
+    },
+    [applyScanResult],
+  );
 
+  /** Start continuous polling (called when dropdown opens). */
+  const startScan = useCallback(() => {
+    if (!discovery.supported || pollingRef.current) return;
+    pollingRef.current = true;
     setScanning(true);
+    setScanError(null);
 
-    const handleResult = (result: ZeroConfWatchResult) => {
-      const svc = result.service;
-      // 'resolved' is the only action that includes valid IP addresses.
-      // 'added' fires before resolution and may have empty ipv4Addresses.
-      if (result.action === "resolved") {
-        const ip = svc.ipv4Addresses?.[0];
-        if (!ip) return;
-        const url = vetiUrl(ip, svc.port);
-        const friendly = svc.name?.trim() || `VETi @ ${ip}`;
-        addBackend({url, ip, label: `${friendly} [${ip}]`});
-      } else if (result.action === "removed") {
-        const ip = svc.ipv4Addresses?.[0];
-        if (ip) removeBackend(vetiUrl(ip, svc.port));
+    const gen = ++scanGenRef.current;
+    const loop = async () => {
+      while (pollingRef.current && scanGenRef.current === gen) {
+        const ok = await runOneScan(gen);
+        if (!pollingRef.current || scanGenRef.current !== gen) return;
+        // On failure, pause before retrying to avoid tight error loops.
+        if (!ok) {
+          await new Promise((r) => setTimeout(r, 3000));
+        }
       }
     };
+    void loop();
+  }, [runOneScan]);
 
-    try {
-      await ZeroConf.watch(
-        { type: VETI_SERVICE_TYPE, domain: VETI_SERVICE_DOMAIN },
-        handleResult,
-      );
-    } catch (err) {
-      console.error("[BackendContext] ZeroConf.watch failed", err);
-      setScanning(false);
-      return () => {};
-    }
+  /** Stop continuous polling (called when dropdown closes). */
+  const stopScan = useCallback(() => {
+    if (!pollingRef.current) return;
+    pollingRef.current = false;
+    setScanning(false);
+  }, []);
 
-    return () => {
-      void ZeroConf.unwatch({
-        type: VETI_SERVICE_TYPE,
-        domain: VETI_SERVICE_DOMAIN,
-      }).catch(() => {
-        /* ignore — plugin may already be torn down */
-      });
-      setScanning(false);
-    };
-  }, [isNative, addBackend, removeBackend]);
+  // --- Mount: restore persisted backend + startup scan ---
 
-  // Mount: restore stored backend immediately, then start discovery.
   useEffect(() => {
     const stored = loadStored();
     if (stored) {
       setActiveState(stored);
       setClient(createApiClient(stored.url));
       autoSelectedRef.current = true;
-      setBackends([stored]);
     } else if (!isNative) {
-      // Web with no saved backend → default to localhost
       setActiveState(LOCALHOST_BACKEND);
       setClient(createApiClient(LOCALHOST_BACKEND.url));
       autoSelectedRef.current = true;
-      setBackends([LOCALHOST_BACKEND]);
     }
 
-    let stop: (() => void) | null = null;
-    let cancelled = false;
-    void startDiscovery().then((cleanup) => {
-      if (cancelled) {
-        cleanup();
-      } else {
-        stop = cleanup;
-      }
-    });
+    // Fire a single startup scan (Android only).
+    if (discovery.supported) {
+      setScanning(true);
+      const gen = ++scanGenRef.current;
+      void runOneScan(gen).then(() => {
+        // Only clear scanning if the poll loop hasn't started since.
+        if (scanGenRef.current === gen) {
+          setScanning(false);
+        }
+      });
+    }
 
     return () => {
-      cancelled = true;
-      stop?.();
+      // Teardown: stop any active polling.
+      pollingRef.current = false;
     };
-  }, [isNative, startDiscovery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const rescan = useCallback(() => {
-    if (isNative) {
-      // Restart the watcher: unwatch then watch again
-      void ZeroConf.unwatch({
-        type: VETI_SERVICE_TYPE,
-        domain: VETI_SERVICE_DOMAIN,
-      }).catch(() => {
-        /* ignore */
-      });
-      autoSelectedRef.current = active !== null;
-      // Clear non-active discovered entries so the list reflects fresh state
-      setBackends(active ? [active] : []);
-      void startDiscovery();
-    } else {
-      // Web: reset to localhost
-      setActive(LOCALHOST_BACKEND);
-      setBackends([LOCALHOST_BACKEND]);
-    }
-  }, [isNative, active, setActive, startDiscovery]);
+  // --- Context value ---
 
   const value = useMemo<BackendContextValue>(
     () => ({
@@ -229,9 +276,23 @@ export function BackendProvider({ children }: { children: ReactNode }) {
       client,
       setActive,
       scanning,
-      rescan,
+      scanError,
+      startScan,
+      stopScan,
+      presence,
     }),
-    [isNative, backends, active, client, setActive, scanning, rescan],
+    [
+      isNative,
+      backends,
+      active,
+      client,
+      setActive,
+      scanning,
+      scanError,
+      startScan,
+      stopScan,
+      presence,
+    ],
   );
 
   return (

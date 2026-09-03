@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Loader2, RotateCw } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,15 +24,33 @@ function makeBackend(ip: string): Backend {
 }
 
 export function BackendSelector() {
-  const { isNative, backends, active, scanning, setActive, rescan } =
-    useBackend();
+  const {
+    isNative,
+    backends,
+    active,
+    scanning,
+    scanError,
+    setActive,
+    startScan,
+    stopScan,
+    presence,
+  } = useBackend();
   const [open, setOpen] = useState(false);
   const [manualIp, setManualIp] = useState("");
   const [manualError, setManualError] = useState("");
 
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) {
+      startScan();
+    } else {
+      stopScan();
+    }
+  };
+
   const handleSelect = (b: Backend) => {
     setActive(b);
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const handleManualConnect = () => {
@@ -55,10 +73,21 @@ export function BackendSelector() {
       ? "Scanning…"
       : "No backend";
 
+  // Trigger dot mirrors the selected instance's presence.
+  const activePresence = active ? presence(active) : null;
+  const triggerDotClass =
+    activePresence === "confirmed"
+      ? "bg-emerald-500"
+      : active
+        ? "bg-muted-foreground"
+        : scanning
+          ? "animate-pulse bg-muted-foreground"
+          : "bg-red-500";
+
   const sectionTitle = isNative ? "Discovered" : "Backends";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         className={cn(
           "flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm transition-colors",
@@ -69,14 +98,7 @@ export function BackendSelector() {
       >
         <span
           aria-hidden
-          className={cn(
-            "h-2 w-2 shrink-0 rounded-full",
-            scanning && !active
-              ? "animate-pulse bg-amber-500"
-              : active
-                ? "bg-emerald-500"
-                : "bg-red-500",
-          )}
+          className={cn("h-2 w-2 shrink-0 rounded-full", triggerDotClass)}
         />
         <span className="max-w-[200px] truncate font-mono text-xs">
           {triggerLabel}
@@ -94,27 +116,26 @@ export function BackendSelector() {
         align="end"
         sideOffset={6}
         className="w-80 gap-0 p-0"
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <div className="border-b border-border px-3 py-2.5">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {sectionTitle}
             </span>
-            {isNative && (
-              <button
-                type="button"
-                onClick={rescan}
-                className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-primary transition-opacity hover:opacity-80"
-              >
-                {scanning ? (
-                  <Loader2 className="size-3 animate-spin" aria-hidden />
-                ) : (
-                  <RotateCw className="size-3" aria-hidden />
-                )}
-                {scanning ? "Scanning" : "Rescan"}
-              </button>
+            {isNative && scanning && (
+              <span className="flex items-center gap-1 text-[11px] font-medium text-primary">
+                <Loader2 className="size-3 animate-spin" aria-hidden />
+                Scanning
+              </span>
             )}
           </div>
+
+          {scanError && (
+            <p className="mb-1 py-0.5 text-[11px] text-destructive">
+              Scan error: {scanError}
+            </p>
+          )}
 
           {backends.length === 0 ? (
             <p className="py-1 text-xs text-muted-foreground">
@@ -128,6 +149,11 @@ export function BackendSelector() {
             <ul role="listbox" aria-label={sectionTitle}>
               {backends.map((b) => {
                 const isActive = b.url === active?.url;
+                const p = presence(b);
+                const dotClass =
+                  p === "confirmed"
+                    ? "bg-emerald-500"
+                    : "bg-muted-foreground";
                 return (
                   <li key={b.url} role="option" aria-selected={isActive}>
                     <button
@@ -144,7 +170,7 @@ export function BackendSelector() {
                         aria-hidden
                         className={cn(
                           "size-1.5 shrink-0 rounded-full",
-                          isActive ? "bg-primary" : "bg-muted-foreground",
+                          dotClass,
                         )}
                       />
                       <span className="flex-1 truncate font-mono text-xs">

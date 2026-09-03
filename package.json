@@ -14,11 +14,11 @@
     "cap:open": "cap open android"
   },
   "dependencies": {
+    "@byrds/capacitor-mdns": "^7.0.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.3.4",
     "@fontsource-variable/inter": "^5.2.8",
     "axios": "^1.7.7",
-    "capacitor-zeroconf": "^4.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",

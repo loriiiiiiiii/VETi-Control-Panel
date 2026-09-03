@@ -9,7 +9,16 @@ Web/Android control panel for a **VETi** device (ophthalmic HMD). Wraps the VETi
 ## Terms
 
 **Backend**
-A reachable VETi device: a base URL (`http://<ip>:8888`), bare IP, and human-readable label. Discovered via mDNS on Android or configured manually. Stored in `localStorage` across sessions.
+A reachable VETi device: a base URL (`http://<ip>:8888` or `https://<ip>:8443`), bare IP, and human-readable label. Discovered via mDNS on Android or configured manually. The selected backend is stored in `localStorage` across sessions.
+
+**Discovered set**
+The list of backends returned by the most recent completed mDNS scan. Null before any scan finishes. Replaced atomically on each successful scan — entries not in the latest result are dropped (except the selected backend, which is always retained in the UI list).
+
+**Scan**
+One mDNS discovery window (~3 seconds). A single scan is fired at app startup; continuous back-to-back scans (a poll loop) run while the backend selector dropdown is open.
+
+**Presence**
+Whether a backend appears in the latest discovered set. Two states: *confirmed* (in the set — green dot) or *unknown* (not in the set, or no scan completed yet — grey dot). mDNS-evidence only; manual-IP entries are always unknown.
 
 **Active backend**
 The backend currently selected for API calls. Exposed by `BackendContext` as `active`, `activeUrl`, and `client`. Switching the active backend creates a new `ApiClient` bound to the new URL.

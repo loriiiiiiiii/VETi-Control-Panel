@@ -18,7 +18,7 @@ The app picks its backend differently depending on where it's running:
 | Platform            | Default backend         | Discovery                                                                                                                                                                                             | Manual override     |
 | ------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | **Desktop browser** | `http://localhost:8888` | Browsers cannot do mDNS, so there is no auto-discovery.                                                                                                                                               | IP entry in the UI. |
-| **Android APK**     | None (waits for mDNS)   | Live `_veti._tcp.local` watch via `capacitor-zeroconf` → Android `NsdManager`. The first VETi backend that resolves is auto-selected; all are listed in the header dropdown for switching on the fly. | IP entry in the UI. |
+| **Android APK**     | None (waits for mDNS)   | At startup, the app runs one mDNS scan for `_veti._tcp.local` via `@byrds/capacitor-mdns` (Android `NsdManager`). When the backend dropdown is open, continuous 3-second polling keeps the list fresh. The first discovered instance is auto-selected; all are listed in the header dropdown for switching on the fly. | IP entry in the UI. |
 
 
 The active backend is persisted to `localStorage` and restored on next launch.
@@ -99,7 +99,9 @@ docker run --rm -p 8080:80 veti-control-panel
 
 ## Android APK (Capacitor)
 
-The Android project lives in `android/` and is committed to git. It was created with `npx cap add android` and includes the `capacitor-zeroconf` plugin for native mDNS discovery.
+The Android project lives in `android/` and is committed to git. It was created with `npx cap add android`. mDNS discovery uses `@byrds/capacitor-mdns`, which wraps Android's native `NsdManager`.
+
+> **TXT record requirement:** VETi devices must announce a TXT record (even an empty one) alongside their PTR/SRV/A records. Without it, Android's NSD stack considers the service incomplete and never reports it to the app. See the "Backend requirements" section below.
 
 ### One-time setup (CLI only, no Android Studio)
 
@@ -163,7 +165,7 @@ Check connected devices: `adb devices`. Launch remotely: `adb shell am start -n 
 
 ### mDNS / network permissions
 
-The Android manifest at `[android/app/src/main/AndroidManifest.xml](android/app/src/main/AndroidManifest.xml)` declares the permissions required by `NsdManager` (which `capacitor-zeroconf` wraps):
+The Android manifest at `[android/app/src/main/AndroidManifest.xml](android/app/src/main/AndroidManifest.xml)` declares the permissions required by `@byrds/capacitor-mdns` (NsdManager):
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
@@ -176,7 +178,12 @@ These are already in place — no manual edits required.
 
 ### Backend requirements (mDNS)
 
-For auto-discovery to work, the VETi backend must announce itself on the LAN as `_veti._tcp.local` on port 8888. Verify with the Python `zeroconf` package:
+For auto-discovery to work, each VETi backend must:
+
+1. Announce itself on the LAN as `_veti._tcp.local` with its service port.
+2. **Include a TXT record** (even if empty). Android's `NsdManager` considers a service resolved only when PTR + SRV + TXT + A records are all present. Without TXT, the device is invisible to the app.
+
+Verify with the Python `zeroconf` package:
 
 ```python
 from zeroconf import Zeroconf, ServiceBrowser
@@ -184,7 +191,10 @@ from zeroconf import Zeroconf, ServiceBrowser
 class L:
     def add_service(self, zc, type_, name):
         info = zc.get_service_info(type_, name)
-        print(f"Found: {name}  ->  {info.parsed_addresses()}:{info.port}")
+        if info:
+            print(f"Resolved: {name}  ->  {info.parsed_addresses()}:{info.port}  txt={dict(info.properties)}")
+        else:
+            print(f"NOT resolved (TXT missing?): {name}")
     def update_service(self, zc, type_, name): pass
     def remove_service(self, zc, type_, name): pass
 
